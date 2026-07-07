@@ -77,3 +77,22 @@ class StorageService:
             except ClientError as e:
                 print(f"Error eliminando archivo de R2: {e}")
                 raise Exception("No se pudo eliminar el documento del servidor de almacenamiento.")
+            
+    async def get_file_content(self, file_key: str) -> bytes:
+        # Descarga el contenido de un archivo desde R2 en memoria.
+        async with self.session.client(
+            "s3",
+            endpoint_url=self.endpoint_url,
+            aws_access_key_id=self.access_key,
+            aws_secret_access_key=self.secret_key,
+            region_name="auto"
+        ) as client:
+            try:
+                response = await client.get_object(
+                    Bucket=self.bucket_name,
+                    Key=file_key
+                )
+                return await response['Body'].read()
+            except ClientError as e:
+                print(f"Error leyendo archivo de R2: {e}")
+                raise Exception("No se pudo leer el documento desde el servidor.")

@@ -1,0 +1,20 @@
+from abc import ABC, abstractmethod
+from langchain_core.embeddings import Embeddings
+
+class ILLMService(ABC):
+    # Interfaz base para todos los servicios de LLM.
+
+    @abstractmethod
+    async def generate_response(self, prompt: str) -> str:
+        # Genera texto a partir de un prompt simple.
+        pass
+
+    @abstractmethod
+    async def generate_summary(self, text: str) -> str:
+        # Genera un resumen estructurado del texto recibido.
+        pass
+    
+    @abstractmethod
+    def get_embeddings(self) -> Embeddings:
+        # Retorna el motor de embeddings compatible con LangChain.
+        pass
