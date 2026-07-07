@@ -58,3 +58,22 @@ class StorageService:
             except ClientError as e:
                 print(f"Error generando URL pre-firmada: {e}")
                 raise Exception("No se pudo generar el link de descarga.")
+            
+    async def delete_file(self, file_key: str) -> bool:
+        # Elimina un archivo físico de Cloudflare R2.
+        async with self.session.client(
+            "s3",
+            endpoint_url=self.endpoint_url,
+            aws_access_key_id=self.access_key,
+            aws_secret_access_key=self.secret_key,
+            region_name="auto"
+        ) as client:
+            try:
+                await client.delete_object(
+                    Bucket=self.bucket_name,
+                    Key=file_key
+                )
+                return True
+            except ClientError as e:
+                print(f"Error eliminando archivo de R2: {e}")
+                raise Exception("No se pudo eliminar el documento del servidor de almacenamiento.")

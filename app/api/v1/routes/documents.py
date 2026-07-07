@@ -1,6 +1,7 @@
 import uuid
 from fastapi import APIRouter, Depends, UploadFile, File, Form, BackgroundTasks, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.db.session import get_db
 from app.services.storage import StorageService
@@ -53,3 +54,53 @@ async def upload_document(
     background_tasks.add_task(process_document_background, new_document.id, r2_path)
 
     return new_document
+
+# Descargar pdf (Url temporal)
+@router.get("/{document_id}/download")
+async def get_document_download_url(
+    document_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(select(Document).where(Document.id == document_id))
+    document = result.scalar_one_or_none()
+    
+    if not document:
+        raise HTTPException(status_code=404, detail="Documento no encontrado.")
+        
+    storage_service = StorageService()
+    
+    file_key = document.file_path.split(f"{storage_service.bucket_name}/")[-1]
+    
+    try:
+        url = await storage_service.get_presigned_url(file_key, expiration_seconds=3600)
+        return {"download_url": url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Eliminar documento
+@router.delete("/{document_id}")
+async def delete_document(
+    document_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(select(Document).where(Document.id == document_id))
+    document = result.scalar_one_or_none()
+    
+    if not document:
+        raise HTTPException(status_code=404, detail="Documento no encontrado.")
+        
+    storage_service = StorageService()
+    file_key = document.file_path.split(f"{storage_service.bucket_name}/")[-1]
+    
+    try:
+        await storage_service.delete_file(file_key)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+        
+    await db.delete(document)
+    await db.commit()
+    
+    # TODO: Llamar a ChromaDB para borrar los vectores de este ID
+    
+    return {"message": "Documento eliminado exitosamente de la base de datos y la nube"}
