@@ -35,3 +35,24 @@ class VectorStoreService:
         vector_store = self.get_vector_store(subject_id)
         vector_store.delete(where={"document_id": str(document_id)})
         print(f"[VectorStore] Vectores del documento {document_id} purgados de ChromaDB.")
+
+    async def get_document_index_chunks(self, subject_id: uuid.UUID, document_id: uuid.UUID) -> str:
+        # Busca en ChromaDB los fragmentos que probablemente contienen el índice o temario.
+        vector_store = self.get_vector_store(subject_id)
+
+        # Palabras clave para atraer matemáticamente a los vectores del índice
+        query = "Índice tabla de contenido temario contenido units chapters"
+        
+        print(f"[VectorStore] Buscando índice para el documento {document_id}...")
+
+        results = vector_store.similarity_search(
+            query=query,
+            k=3, 
+            filter={"document_id": str(document_id)}
+        )
+
+        if not results:
+            return ""
+
+        index_text = "\n\n...\n\n".join([doc.page_content for doc in results])
+        return index_text
