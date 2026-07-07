@@ -5,6 +5,7 @@ from sqlalchemy import select
 
 from app.db.session import get_db
 from app.services.storage import StorageService
+from app.services.document_processor import DocumentProcessor
 from app.models.document import Document
 from app.schemas.document import DocumentResponse
 
@@ -13,11 +14,21 @@ router = APIRouter()
 # Tarea en segundo plano
 async def process_document_background(document_id: uuid.UUID, file_path: str):
     print(f"[Background] Iniciando indexación del documento {document_id}...")
-    print(f"[Background] Leyendo archivo desde: {file_path}")
-
-    import asyncio
-    await asyncio.sleep(2)
-    print(f"[Background] Documento {document_id} listo para usar con IA.")
+    
+    try:
+        processor = DocumentProcessor()
+        storage_service = StorageService()
+        
+        file_key = file_path.split(f"{storage_service.bucket_name}/")[-1]
+        
+        chunks = await processor.process_pdf(file_key)
+        
+        # TODO: Enviar los chunks a ChromaDB
+        print(f"[Background] Proceso de chunking completado para {document_id}")
+        
+    except Exception as e:
+        print(f"[Background] Error procesando documento {document_id}: {e}")
+        # TODO: Actualizar el status del documento a "failed" en la BD
 
 # Subir documento
 @router.post("/", response_model=DocumentResponse)
