@@ -7,6 +7,7 @@ from app.db.session import get_db, AsyncSessionLocal
 from app.services.storage import StorageService
 from app.services.document_processor import DocumentProcessor
 from app.services.vector_store import VectorStoreService
+from app.services.llm.factory import get_llm_service
 from app.models.document import Document
 from app.schemas.document import DocumentResponse
 
@@ -128,3 +129,54 @@ async def delete_document(document_id: uuid.UUID, db: AsyncSession = Depends(get
     await db.commit()
     
     return {"message": "Documento y vectores purgados con éxito de todo el sistema."}
+
+# Generar resumen desde el índice
+@router.get("/{document_id}/summary")
+async def get_document_summary(
+    document_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(select(Document).where(Document.id == document_id))
+    document = result.scalar_one_or_none()
+    
+    if not document:
+        raise HTTPException(status_code=404, detail="Documento no encontrado.")
+        
+    if document.status != "completed":
+        raise HTTPException(
+            status_code=400, 
+            detail="El documento aún se está procesando o falló la indexación."
+        )
+
+    try:
+        vector_service = VectorStoreService()
+        index_text = await vector_service.get_document_index_chunks(
+            subject_id=document.subject_id,
+            document_id=document.id
+        )
+        
+        if not index_text:
+            return {"summary": "La Inteligencia Artificial no pudo localizar un índice claro en este documento."}
+
+        llm = get_llm_service()
+        
+        prompt_personalizado = f"""
+        A continuación te proporciono fragmentos extraídos del índice o temario de un documento.
+        Utilizando ÚNICAMENTE los temas mencionados aquí, redacta un resumen general y fluido de lo que trata el material.
+        Estructúralo en párrafos cortos y viñetas claras. No inventes información que no esté en el texto.
+
+        ÍNDICE EXTRAÍDO:
+        {index_text}
+        """
+        
+        print("[LLM] Generando resumen a partir del índice...")
+        summary = await llm.generate_response(prompt_personalizado)
+        
+        return {
+            "document_id": document.id,
+            "title": document.title,
+            "summary": summary
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

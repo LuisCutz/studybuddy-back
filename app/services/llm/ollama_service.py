@@ -1,34 +1,34 @@
 import os
-import httpx
 from langchain_core.embeddings import Embeddings
+from langchain_ollama import ChatOllama, OllamaEmbeddings
 
 from app.services.llm.base import ILLMService
 
 class OllamaService(ILLMService):
     def __init__(self):
-        # Por defecto Ollama corre en el puerto 11434
         self.host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-        self.model = os.getenv("OLLAMA_MODEL", "llama3") # O gemma, mistral, etc.
-        print(f"🦙 [LLM] Iniciando motor: Ollama (Modelo: {self.model})")
+        self.model_name = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
+        print(f"[LLM] Iniciando motor: Ollama (Modelo: {self.model_name})")
+        
+        self.llm = ChatOllama(
+            model=self.model_name,
+            base_url=self.host,
+            temperature=0.3
+        )
 
     async def generate_response(self, prompt: str) -> str:
-        """Hace una petición POST a la API local de Ollama."""
-        # --- (Código comentado hasta que instalemos Ollama) ---
-        # async with httpx.AsyncClient() as client:
-        #     response = await client.post(
-        #         f"{self.host}/api/generate",
-        #         json={"model": self.model, "prompt": prompt, "stream": False}
-        #     )
-        #     return response.json()["response"]
-        return f"[Ollama dice]: Respuesta simulada localmente para: {prompt}"
+        # Envía el prompt a Ollama de forma asíncrona.
+        response = await self.llm.ainvoke(prompt)
+        return response.content
 
     async def generate_summary(self, text: str) -> str:
-        prompt = f"Resume el siguiente texto en viñetas:\n\n{text}"
+        # Usa Ollama para resumir el texto proporcionado.
+        prompt = f"Resume el siguiente texto en viñetas claras y concisas:\n\n{text}"
         return await self.generate_response(prompt)
-    
+
     def get_embeddings(self) -> Embeddings:
-        from langchain_ollama import OllamaEmbeddings
+        # Retorna el motor de embeddings de Ollama.
         return OllamaEmbeddings(
-            base_url=self.host,
-            model=os.getenv("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text:latest")
+            model=os.getenv("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text:latest"),
+            base_url=self.host
         )
