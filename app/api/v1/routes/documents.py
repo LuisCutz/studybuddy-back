@@ -1,34 +1,56 @@
 import uuid
 from fastapi import APIRouter, Depends, UploadFile, File, Form, BackgroundTasks, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_db
+from app.db.session import get_db, AsyncSessionLocal
 from app.services.storage import StorageService
 from app.services.document_processor import DocumentProcessor
+from app.services.vector_store import VectorStoreService
 from app.models.document import Document
 from app.schemas.document import DocumentResponse
 
 router = APIRouter()
 
-# Tarea en segundo plano
+# Pipeline de indexación en segundo plano
 async def process_document_background(document_id: uuid.UUID, file_path: str):
-    print(f"[Background] Iniciando indexación del documento {document_id}...")
+    print(f"⏳ [Background] Iniciando indexación del documento {document_id}...")
     
     try:
-        processor = DocumentProcessor()
-        storage_service = StorageService()
-        
-        file_key = file_path.split(f"{storage_service.bucket_name}/")[-1]
-        
-        chunks = await processor.process_pdf(file_key)
-        
-        # TODO: Enviar los chunks a ChromaDB
-        print(f"[Background] Proceso de chunking completado para {document_id}")
-        
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(Document).where(Document.id == document_id))
+            document = result.scalar_one_or_none()
+            
+            if not document:
+                print(f"[Background] Registro del documento {document_id} no encontrado.")
+                return
+
+            processor = DocumentProcessor()
+            storage_service = StorageService()
+            
+            file_key = file_path.split(f"{storage_service.bucket_name}/")[-1]
+            
+            chunks = await processor.process_pdf(file_key)
+            
+            vector_service = VectorStoreService()
+            await vector_service.add_documents(
+                subject_id=document.subject_id,
+                document_id=document.id,
+                chunks=chunks
+            )
+            
+            document.status = "completed"
+            await db.commit()
+            print(f"[Background] Documento {document_id} totalmente indexado y listo para RAG.")
+            
     except Exception as e:
-        print(f"[Background] Error procesando documento {document_id}: {e}")
-        # TODO: Actualizar el status del documento a "failed" en la BD
+        print(f"[Background] Error crítico en el pipeline del documento {document_id}: {e}")
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(Document).where(Document.id == document_id))
+            document = result.scalar_one_or_none()
+            if document:
+                document.status = "failed"
+                await db.commit()
 
 # Subir documento
 @router.post("/", response_model=DocumentResponse)
@@ -43,7 +65,6 @@ async def upload_document(
         raise HTTPException(status_code=400, detail="Solo se permiten archivos PDF.")
 
     storage_service = StorageService()
-
     file_extension = file.filename.split('.')[-1]
     unique_filename = f"subjects/{subject_id}/{uuid.uuid4()}.{file_extension}"
     
@@ -63,38 +84,26 @@ async def upload_document(
     await db.refresh(new_document)
 
     background_tasks.add_task(process_document_background, new_document.id, r2_path)
-
     return new_document
 
-# Descargar pdf (Url temporal)
+# Descargar pdf
 @router.get("/{document_id}/download")
-async def get_document_download_url(
-    document_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db)
-):
+async def get_document_download_url(document_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Document).where(Document.id == document_id))
     document = result.scalar_one_or_none()
-    
     if not document:
         raise HTTPException(status_code=404, detail="Documento no encontrado.")
-        
     storage_service = StorageService()
-    
     file_key = document.file_path.split(f"{storage_service.bucket_name}/")[-1]
-    
     try:
         url = await storage_service.get_presigned_url(file_key, expiration_seconds=3600)
         return {"download_url": url}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 # Eliminar documento
 @router.delete("/{document_id}")
-async def delete_document(
-    document_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db)
-):
+async def delete_document(document_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Document).where(Document.id == document_id))
     document = result.scalar_one_or_none()
     
@@ -106,12 +115,16 @@ async def delete_document(
     
     try:
         await storage_service.delete_file(file_key)
+        
+        vector_service = VectorStoreService()
+        await vector_service.delete_document_embeddings(
+            subject_id=document.subject_id,
+            document_id=document.id
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
         
     await db.delete(document)
     await db.commit()
     
-    # TODO: Llamar a ChromaDB para borrar los vectores de este ID
-    
-    return {"message": "Documento eliminado exitosamente de la base de datos y la nube"}
+    return {"message": "Documento y vectores purgados con éxito de todo el sistema."}
