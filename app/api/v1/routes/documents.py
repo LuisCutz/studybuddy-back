@@ -53,6 +53,21 @@ async def process_document_background(document_id: uuid.UUID, file_path: str):
                 document.status = "failed"
                 await db.commit()
 
+@router.get("/health", summary="Check Documents API Health")
+async def documents_health_check():
+    # Retorna el estado de salud y metadatos del módulo de Documentos.
+    return {
+        "status": "ok",
+        "module": "Documents & RAG API",
+        "version": "v1",
+        "visibility": "private",
+        "requires_jwt": True,
+        "documentation": {
+            "swagger_url": "/docs",
+            "openapi_json_url": "/openapi.json"
+        }
+    }
+
 # Subir documento
 @router.post("/", response_model=DocumentResponse)
 async def upload_document(

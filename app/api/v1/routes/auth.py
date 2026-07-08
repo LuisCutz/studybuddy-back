@@ -12,6 +12,21 @@ from app.schemas.user import LoginRequest, RegisterRequest, TokenResponse
 
 router = APIRouter()
     
+@router.get("/health", summary="Check Authentication API Health")
+async def auth_health_check():
+    # Retorna el estado de salud y metadatos del módulo de Autenticación.
+    return {
+        "status": "ok",
+        "module": "Authentication API",
+        "version": "v1",
+        "visibility": "public",
+        "requires_jwt": False,
+        "documentation": {
+            "swagger_url": "/docs",
+            "openapi_json_url": "/openapi.json"
+        }
+    }
+
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 async def register_user(payload: RegisterRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
     existing = await db.execute(select(User).where(User.email == payload.email))
