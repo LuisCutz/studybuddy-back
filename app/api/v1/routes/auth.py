@@ -6,8 +6,10 @@ from app.db.session import get_db
 from app.models.user import User
 from app.models.room import StudyRoom
 from app.models.study_room_member import StudyRoomMember
+from app.models.organization import Organization
 from app.schemas.user import LoginRequest, RegisterRequest, TokenResponse
 from app.repositories.user_repository import UserRepository
+from app.repositories.organization_repository import OrganizationRepository
 
 router = APIRouter()
     
@@ -28,6 +30,7 @@ async def auth_health_check():
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 async def register_user(payload: RegisterRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
     user_repo = UserRepository(db)
+    org_repo = OrganizationRepository(db)
     
     existing = await user_repo.get_by_email(payload.email)
     if existing:
@@ -41,10 +44,16 @@ async def register_user(payload: RegisterRequest, db: AsyncSession = Depends(get
     await user_repo.save(user) 
 
     new_tenant_id = f"org_{user.id}"
+    new_org = Organization(
+        id=new_tenant_id,
+        name=f"Organización de {user.name}",
+        description="Espacio de estudio personal"
+    )
+    await org_repo.save(new_org)
 
     default_room = StudyRoom(
-        name=f"Sala Principal de {user.name}",
-        description="Tu espacio de estudio personal",
+        name=f"Sala General",
+        description="Tu salón principal",
         tenant_id=new_tenant_id
     )
     db.add(default_room)
