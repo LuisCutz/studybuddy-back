@@ -1,6 +1,7 @@
 import os
 from langchain_core.embeddings import Embeddings
 from langchain_ollama import ChatOllama, OllamaEmbeddings
+from typing import AsyncGenerator
 
 from app.services.llm.base import ILLMService
 
@@ -20,6 +21,11 @@ class OllamaService(ILLMService):
         # Envía el prompt a Ollama de forma asíncrona.
         response = await self.llm.ainvoke(prompt)
         return response.content
+    
+    async def generate_streaming_response(self, prompt: str) -> AsyncGenerator[str, None]:
+        # Envía el prompt al modelo y devuelve los pedazos de texto en tiempo real.
+        async for chunk in self.llm.astream(prompt):
+            yield chunk.content
 
     async def generate_summary(self, text: str) -> str:
         # Usa Ollama para resumir el texto proporcionado.
