@@ -5,7 +5,6 @@ class RegisterRequest(BaseModel):
     name: str
     email: EmailStr
     password: str
-    tenant_id: str | None = None
 
 
 class LoginRequest(BaseModel):

@@ -16,7 +16,7 @@ router = APIRouter()
 async def register_user(payload: RegisterRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
     existing = await db.execute(select(User).where(User.email == payload.email))
     if existing.scalar_one_or_none() is not None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El correo ya está registrado.")
 
     user = User(
         name=payload.name,
@@ -26,7 +26,7 @@ async def register_user(payload: RegisterRequest, db: AsyncSession = Depends(get
     db.add(user)
     await db.flush()
 
-    new_tenant_id = payload.tenant_id or f"org_{user.id}"
+    new_tenant_id = f"org_{user.id}"
 
     default_room = StudyRoom(
         name=f"Sala Principal de {user.name}",
@@ -60,7 +60,7 @@ async def login_user(payload: LoginRequest, db: AsyncSession = Depends(get_db)) 
     user = result.scalar_one_or_none()
     
     if user is None or not verify_password(payload.password, user.password):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Correo o contraseña incorrectos.")
 
     active_tenant_id = "default-tenant"
     active_role = "alumno"
