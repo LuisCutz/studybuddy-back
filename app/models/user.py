@@ -14,7 +14,6 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     password: Mapped[str] = mapped_column(String(255), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    tenant_id: Mapped[str] = mapped_column(String(100), nullable=False, default="default-tenant")
     current_streak: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[object] = mapped_column(Date, nullable=False, server_default=func.current_date())
 
