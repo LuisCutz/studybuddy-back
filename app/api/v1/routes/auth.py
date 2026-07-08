@@ -1,6 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import create_access_token, get_password_hash, verify_password
@@ -9,12 +7,12 @@ from app.models.user import User
 from app.models.room import StudyRoom
 from app.models.study_room_member import StudyRoomMember
 from app.schemas.user import LoginRequest, RegisterRequest, TokenResponse
+from app.repositories.user_repository import UserRepository
 
 router = APIRouter()
     
 @router.get("/health", summary="Check Authentication API Health")
 async def auth_health_check():
-    # Retorna el estado de salud y metadatos del módulo de Autenticación.
     return {
         "status": "ok",
         "module": "Authentication API",
@@ -29,8 +27,10 @@ async def auth_health_check():
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 async def register_user(payload: RegisterRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
-    existing = await db.execute(select(User).where(User.email == payload.email))
-    if existing.scalar_one_or_none() is not None:
+    user_repo = UserRepository(db)
+    
+    existing = await user_repo.get_by_email(payload.email)
+    if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El correo ya está registrado.")
 
     user = User(
@@ -38,8 +38,7 @@ async def register_user(payload: RegisterRequest, db: AsyncSession = Depends(get
         email=payload.email,
         password=get_password_hash(payload.password)
     )
-    db.add(user)
-    await db.flush()
+    await user_repo.save(user) 
 
     new_tenant_id = f"org_{user.id}"
 
@@ -67,12 +66,9 @@ async def register_user(payload: RegisterRequest, db: AsyncSession = Depends(get
 
 @router.post("/login", response_model=TokenResponse)
 async def login_user(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
-    result = await db.execute(
-        select(User)
-        .options(selectinload(User.room_memberships).selectinload(StudyRoomMember.room))
-        .where(User.email == payload.email)
-    )
-    user = result.scalar_one_or_none()
+    user_repo = UserRepository(db)
+    
+    user = await user_repo.get_by_email_with_rooms(payload.email)
     
     if user is None or not verify_password(payload.password, user.password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Correo o contraseña incorrectos.")
