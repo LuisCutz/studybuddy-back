@@ -1,7 +1,5 @@
 import os
-
 from pydantic_settings import BaseSettings
-
 
 class Settings(BaseSettings):
     SECRET_KEY: str = os.getenv("SECRET_KEY", "super-secret-key-change-me-in-production-123456")
@@ -14,6 +12,6 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
-
+        extra = "ignore"
 
 settings = Settings()
