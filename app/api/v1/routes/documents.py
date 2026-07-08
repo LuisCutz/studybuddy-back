@@ -10,17 +10,18 @@ from app.services.vector_store import VectorStoreService
 from app.services.llm.factory import get_llm_service
 from app.models.document import Document
 from app.schemas.document import DocumentResponse
+from app.repositories.document_repository import DocumentRepository
 
 router = APIRouter()
 
 # Pipeline de indexación en segundo plano
 async def process_document_background(document_id: uuid.UUID, file_path: str):
-    print(f"⏳ [Background] Iniciando indexación del documento {document_id}...")
+    print(f"[Background] Iniciando indexación del documento {document_id}...")
     
     try:
         async with AsyncSessionLocal() as db:
-            result = await db.execute(select(Document).where(Document.id == document_id))
-            document = result.scalar_one_or_none()
+            doc_repo = DocumentRepository(db)
+            document = await doc_repo.get_by_id(document_id)
             
             if not document:
                 print(f"[Background] Registro del documento {document_id} no encontrado.")
@@ -47,8 +48,8 @@ async def process_document_background(document_id: uuid.UUID, file_path: str):
     except Exception as e:
         print(f"[Background] Error crítico en el pipeline del documento {document_id}: {e}")
         async with AsyncSessionLocal() as db:
-            result = await db.execute(select(Document).where(Document.id == document_id))
-            document = result.scalar_one_or_none()
+            doc_repo = DocumentRepository(db)
+            document = await doc_repo.get_by_id(document_id)
             if document:
                 document.status = "failed"
                 await db.commit()
@@ -95,7 +96,9 @@ async def upload_document(
         file_path=r2_path,
         status="pending"
     )
-    db.add(new_document)
+
+    doc_repo = DocumentRepository(db)
+    await doc_repo.save(new_document)
     await db.commit()
     await db.refresh(new_document)
 
@@ -105,8 +108,8 @@ async def upload_document(
 # Descargar pdf
 @router.get("/{document_id}/download")
 async def get_document_download_url(document_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Document).where(Document.id == document_id))
-    document = result.scalar_one_or_none()
+    doc_repo = DocumentRepository(db)
+    document = await doc_repo.get_by_id(document_id)
     if not document:
         raise HTTPException(status_code=404, detail="Documento no encontrado.")
     storage_service = StorageService()
@@ -120,8 +123,8 @@ async def get_document_download_url(document_id: uuid.UUID, db: AsyncSession = D
 # Eliminar documento
 @router.delete("/{document_id}")
 async def delete_document(document_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Document).where(Document.id == document_id))
-    document = result.scalar_one_or_none()
+    doc_repo = DocumentRepository(db)
+    document = await doc_repo.get_by_id(document_id)
     
     if not document:
         raise HTTPException(status_code=404, detail="Documento no encontrado.")
@@ -140,7 +143,7 @@ async def delete_document(document_id: uuid.UUID, db: AsyncSession = Depends(get
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
         
-    await db.delete(document)
+    await doc_repo.delete(document)
     await db.commit()
     
     return {"message": "Documento y vectores purgados con éxito de todo el sistema."}
@@ -151,8 +154,8 @@ async def get_document_summary(
     document_id: uuid.UUID,
     db: AsyncSession = Depends(get_db)
 ):
-    result = await db.execute(select(Document).where(Document.id == document_id))
-    document = result.scalar_one_or_none()
+    doc_repo = DocumentRepository(db)
+    document = await doc_repo.get_by_id(document_id)
     
     if not document:
         raise HTTPException(status_code=404, detail="Documento no encontrado.")
