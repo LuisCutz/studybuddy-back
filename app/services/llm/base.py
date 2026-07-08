@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import AsyncGenerator
 from langchain_core.embeddings import Embeddings
 
 class ILLMService(ABC):
@@ -17,4 +18,9 @@ class ILLMService(ABC):
     @abstractmethod
     def get_embeddings(self) -> Embeddings:
         # Retorna el motor de embeddings compatible con LangChain.
+        pass
+
+    @abstractmethod
+    async def generate_streaming_response(self, prompt: str) -> AsyncGenerator[str, None]:
+        # Genera una respuesta en tiempo real (token por token).
         pass
