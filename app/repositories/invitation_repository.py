@@ -22,8 +22,3 @@ class InvitationRepository:
         # Elimina las invitaciones vencidas de la base de datos.
         await self.db.execute(delete(Invitation).where(Invitation.expires_at < current_time))
         await self.db.flush()
-        
-    async def delete(self, invitation: Invitation):
-        # Elimina una invitación específica.
-        await self.db.delete(invitation)
-        await self.db.flush()

@@ -1,5 +1,4 @@
 import uuid
-from datetime import date
 from typing import Optional
 from pydantic import BaseModel
 
@@ -8,7 +7,7 @@ class OrganizationUpdate(BaseModel):
     description: Optional[str] = None
 
 class OrganizationResponse(BaseModel):
-    id: str
+    id: uuid.UUID
     name: str
     description: Optional[str] = None
-    created_at: date
+    tenant_id: str

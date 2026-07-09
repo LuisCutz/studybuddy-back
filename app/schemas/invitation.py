@@ -8,7 +8,7 @@ class InvitationCreate(BaseModel):
 
 class InvitationResponse(BaseModel):
     id: uuid.UUID
-    organization_id: str
+    room_id: uuid.UUID
     email: EmailStr
     token: str
     role: str
@@ -17,3 +17,4 @@ class InvitationResponse(BaseModel):
 
 class AcceptInvitationRequest(BaseModel):
     token: str
+    user_id: uuid.UUID
