@@ -10,13 +10,14 @@ class Invitation(Base):
     __tablename__ = "invitation"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    organization_id: Mapped[str] = mapped_column(String(100), ForeignKey("organization.id", ondelete="CASCADE"))
+    
+    room_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("study_room.id", ondelete="CASCADE"))
     email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     
     token: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     role: Mapped[str] = mapped_column(String(50), nullable=False, default="alumno")
     
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending") # pending, accepted
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
 
-    organization: Mapped["Organization"] = relationship(back_populates="invitations")
+    room: Mapped["StudyRoom"] = relationship(back_populates="invitations")
