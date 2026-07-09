@@ -40,12 +40,10 @@ async def register_user(payload: RegisterRequest, db: AsyncSession = Depends(get
     )
     await user_repo.save(user) 
 
-    new_tenant_id = f"org_{user.id}"
-
     default_room = StudyRoom(
-        name=f"Sala Principal de {user.name}",
+        name=f"Sala General de {user.name}",
         description="Tu espacio de estudio personal",
-        tenant_id=new_tenant_id
+        tenant_id=f"room_{user.id}"
     )
     db.add(default_room)
     await db.flush()
@@ -60,7 +58,7 @@ async def register_user(payload: RegisterRequest, db: AsyncSession = Depends(get
     await db.commit()
     await db.refresh(user)
 
-    token = create_access_token(user_id=str(user.id), tenant_id=new_tenant_id, role="admin")
+    token = create_access_token(user_id=str(user.id), tenant_id=default_room.tenant_id, role="admin")
     return TokenResponse(access_token=token, token_type="bearer")
 
 

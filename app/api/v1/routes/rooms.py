@@ -10,10 +10,10 @@ from app.models.room import StudyRoom
 from app.models.study_room_member import StudyRoomMember
 from app.models.user import User
 
-rooms_router = APIRouter(tags=["rooms"])
+router = APIRouter()
 
 
-@rooms_router.get("/{room_id}", status_code=status.HTTP_200_OK)
+@router.get("/{room_id}", status_code=status.HTTP_200_OK)
 async def get_room(
     room_id: str,
     current_user: User = Depends(require_room_access("admin", "profesor", "alumno")),

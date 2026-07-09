@@ -12,6 +12,7 @@ from app.models.study_room_member import StudyRoomMember
 from app.models.summary import Summary
 from app.models.subject import Subject
 from app.models.user import User
+from app.models.invitation import Invitation
 
 __all__ = [
 	"Base",
@@ -28,4 +29,5 @@ __all__ = [
 	"Flashcard",
 	"ChatSession",
 	"ChatMessage",
+    "Invitation",
 ]

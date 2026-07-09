@@ -23,3 +23,8 @@ class StudyRoom(Base):
         back_populates="room",
         cascade="all, delete-orphan",
     )
+
+    invitations: Mapped[list["Invitation"]] = relationship(
+        back_populates="room",
+        cascade="all, delete-orphan"
+    )
