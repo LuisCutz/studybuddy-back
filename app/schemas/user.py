@@ -20,3 +20,7 @@ class TokenResponse(BaseModel):
 class LoginResponse(TokenResponse):
     user_id: str
     tenant_id: str | None = None
+
+
+class GoogleLoginRequest(BaseModel):
+    token: str
