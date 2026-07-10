@@ -6,13 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 
-from app.core.security import create_access_token, create_refresh_token, create_reset_token, get_password_hash, verify_password, get_current_user
+from app.core.security import create_access_token, create_refresh_token, create_reset_token, create_verification_token, get_password_hash, verify_password, get_current_user
 from app.core.config import settings
 from app.db.session import get_db
 from app.models.user import User
 from app.models.room import StudyRoom
 from app.models.study_room_member import StudyRoomMember
-from app.schemas.user import ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest, TokenResponse, UserResponse, ChangePasswordRequest
+from app.schemas.user import ForgotPasswordRequest, LoginRequest, RegisterRequest, ResendVerificationRequest, ResetPasswordRequest, TokenResponse, UserResponse, ChangePasswordRequest, VerifyEmailRequest
 from app.schemas.user import GoogleLoginRequest
 from app.repositories.user_repository import UserRepository
 from app.services.email_service import EmailService
@@ -66,6 +66,12 @@ async def register_user(payload: RegisterRequest, response: Response, db: AsyncS
     await db.commit()
     await db.refresh(user)
 
+    verify_token = create_verification_token(email=user.email)
+    try:
+        await EmailService.send_verification_email(email_to=user.email, token=verify_token)
+    except Exception as e:
+        print(f"Error enviando correo de verificación de bienvenida: {e}")
+
     tenant_id = default_room.tenant_id
     role = membership.role
 
@@ -114,6 +120,51 @@ async def login_user(payload: LoginRequest, response: Response, db: AsyncSession
     )
     
     return TokenResponse(access_token=access_token, token_type="bearer")
+
+
+@router.post("/verify-email", summary="Verificar email con token")
+async def verify_email(payload: VerifyEmailRequest, db: AsyncSession = Depends(get_db)):
+    try:
+        token_data = jwt.decode(payload.token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        
+        if token_data.get("type") != "verify":
+            raise HTTPException(status_code=400, detail="Token inválido para esta operación.")
+            
+        email = token_data.get("sub")
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=400, detail="El token ha expirado. Solicita uno nuevo.")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=400, detail="Token inválido.")
+
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_email(email)
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+
+    if user.is_verified:
+        return {"message": "El correo ya había sido verificado anteriormente."}
+
+    user.is_verified = True
+    await user_repo.save(user)
+    await db.commit()
+
+    return {"message": "Correo verificado exitosamente. ¡Bienvenido a StudyBuddy!"}
+
+
+@router.post("/resend-verification", summary="Reenviar correo de verificación")
+async def resend_verification(payload: ResendVerificationRequest, db: AsyncSession = Depends(get_db)):
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_email(payload.email)
+    
+    if user and not user.is_verified:
+        verify_token = create_verification_token(email=user.email)
+        try:
+            await EmailService.send_verification_email(email_to=user.email, token=verify_token)
+        except Exception as e:
+            print(f"Error reenviando correo de verificación: {e}")
+
+    return {"message": "Si tu correo no estaba verificado, recibirás un nuevo enlace pronto."}
 
 
 @router.get("/me", response_model=UserResponse, summary="Get current user info")

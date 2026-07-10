@@ -82,3 +82,35 @@ class EmailService:
 
         fm = FastMail(conf)
         await fm.send_message(message)
+
+    @staticmethod
+    async def send_verification_email(email_to: EmailStr, token: str):
+        # Envía el correo con el enlace para verificar la cuenta.
+        
+        verify_url = f"http://localhost:5173/verify-email?token={token}"
+        
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; padding: 20px;">
+                <div style="max-width: 600px; margin: 0 auto; background-color: #f9f9f9; padding: 30px; border-radius: 8px;">
+                    <h2 style="color: #333;">¡Bienvenido a StudyBuddy!</h2>
+                    <p>Estamos muy emocionados de tenerte a bordo.</p>
+                    <p>Para empezar a usar todas las funciones, por favor verifica tu dirección de correo electrónico haciendo clic en el botón de abajo:</p>
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="{verify_url}" style="background-color: #10B981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Verificar mi correo</a>
+                    </div>
+                    <p style="font-size: 12px; color: #666;">Este enlace caducará en 24 horas.</p>
+                </div>
+            </body>
+        </html>
+        """
+
+        message = MessageSchema(
+            subject="Verifica tu cuenta de correo - StudyBuddy",
+            recipients=[email_to],
+            body=html_content,
+            subtype=MessageType.html
+        )
+
+        fm = FastMail(conf)
+        await fm.send_message(message)
