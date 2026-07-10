@@ -84,7 +84,7 @@ async def register_user(payload: RegisterRequest, response: Response, db: AsyncS
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login_user(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
+async def login_user(payload: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)) -> TokenResponse:
     user_repo = UserRepository(db)
     
     user = await user_repo.get_by_email_with_rooms(payload.email)
@@ -100,8 +100,19 @@ async def login_user(payload: LoginRequest, db: AsyncSession = Depends(get_db)) 
         active_tenant_id = first_membership.room.tenant_id
         active_role = first_membership.role
 
-    token = create_access_token(user_id=str(user.id), tenant_id=active_tenant_id, role=active_role)
-    return TokenResponse(access_token=token, token_type="bearer")
+    access_token = create_access_token(user_id=str(user.id), tenant_id=active_tenant_id, role=active_role)
+    refresh_token = create_refresh_token(user_id=str(user.id), tenant_id=active_tenant_id, role=active_role)
+    
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=7 * 24 * 60 * 60
+    )
+    
+    return TokenResponse(access_token=access_token, token_type="bearer")
 
 
 @router.get("/me", response_model=UserResponse, summary="Get current user info")
@@ -142,7 +153,7 @@ async def refresh_token(
 
 
 @router.post("/google", response_model=TokenResponse)
-async def google_auth(payload: GoogleLoginRequest, db: AsyncSession = Depends(get_db)):
+async def google_auth(payload: GoogleLoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
     user_repo = UserRepository(db)
     
     try:
@@ -186,8 +197,8 @@ async def google_auth(payload: GoogleLoginRequest, db: AsyncSession = Depends(ge
         db.add(membership)
         await db.commit()
         
-        token = create_access_token(user_id=str(new_user.id), tenant_id=default_room.tenant_id, role="admin")
-        return TokenResponse(access_token=token, token_type="bearer")
+        access_token = create_access_token(user_id=str(new_user.id), tenant_id=default_room.tenant_id, role="admin")
+        refresh_token = create_refresh_token(user_id=str(new_user.id), tenant_id=default_room.tenant_id, role="admin")
 
     else:
         active_tenant_id = "default-tenant"
@@ -198,8 +209,19 @@ async def google_auth(payload: GoogleLoginRequest, db: AsyncSession = Depends(ge
             active_tenant_id = first_membership.room.tenant_id
             active_role = first_membership.role
 
-        token = create_access_token(user_id=str(user.id), tenant_id=active_tenant_id, role=active_role)
-        return TokenResponse(access_token=token, token_type="bearer")
+        access_token = create_access_token(user_id=str(user.id), tenant_id=active_tenant_id, role=active_role)
+        refresh_token = create_refresh_token(user_id=str(user.id), tenant_id=active_tenant_id, role=active_role)
+
+        response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=7 * 24 * 60 * 60
+    )
+
+    return TokenResponse(access_token=access_token, token_type="bearer")
     
 
 @router.post("/logout", summary="Logout user and clear refresh token cookie")
