@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.routes import auth, chat, documents, quizzes, organizations, rooms
+from app.api.v1.routes import auth, chat, documents, quizzes, organizations
 
 api_router = APIRouter()
 

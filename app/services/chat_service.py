@@ -71,16 +71,16 @@ Mensaje actual del usuario:
             user_id=user_id,
             subject_id=subject_id,
             name=name or "Nueva sesión",
+            documents=documents
         )
         self.db.add(session)
+        
         await self.db.flush()
-
-        if documents:
-            session.documents = documents
-
+        session_id = session.id 
+        
         await self.db.commit()
-        await self.db.refresh(session)
-        return session
+        
+        return await self.get_session(session_id, user_id)
 
     async def list_sessions(self, user_id: uuid.UUID) -> list[ChatSession]:
         if self.db is None:
