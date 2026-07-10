@@ -1,8 +1,11 @@
 import os
 from langchain_core.embeddings import Embeddings
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import JsonOutputParser
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 from typing import AsyncGenerator
 
+from app.schemas.quiz_gen import GeneratedQuiz
 from app.services.llm.base import ILLMService
 
 class OllamaService(ILLMService):
@@ -38,3 +41,27 @@ class OllamaService(ILLMService):
             model=os.getenv("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text:latest"),
             base_url=self.host
         )
+    
+    async def generate_quiz(self, text: str, num_questions: int = 5) -> dict:
+        # Usa Ollama para generar un quiz estructurado.
+        parser = JsonOutputParser(pydantic_object=GeneratedQuiz)
+        
+        template = """
+        Eres un profesor experto diseñando evaluaciones. 
+        Basándote ÚNICAMENTE en el siguiente texto, genera un quiz de {num_questions} preguntas de opción múltiple.
+        
+        TEXTO:
+        {text}
+        
+        INSTRUCCIONES DE FORMATO:
+        {format_instructions}
+        """
+        
+        prompt = PromptTemplate(
+            template=template,
+            input_variables=["num_questions", "text"],
+            partial_variables={"format_instructions": parser.get_format_instructions()}
+        )
+        
+        chain = prompt | self.llm | parser
+        return await chain.ainvoke({"num_questions": num_questions, "text": text})
