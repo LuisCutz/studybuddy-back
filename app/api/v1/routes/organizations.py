@@ -19,9 +19,18 @@ from app.services.email_service import EmailService
 router = APIRouter()
 
 # Listar organizaciones
-@router.get("/", response_model=list[OrganizationResponse], summary="List all organizations")
-async def list_organizations(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(StudyRoom))
+@router.get("/", response_model=list[OrganizationResponse], summary="List user's organizations")
+async def list_organizations(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = (
+        select(StudyRoom)
+        .join(StudyRoomMember, StudyRoom.id == StudyRoomMember.room_id)
+        .where(StudyRoomMember.user_id == current_user.id)
+    )
+    
+    result = await db.execute(stmt)
     return list(result.scalars().all())
 
 @router.post("/", response_model=OrganizationResponse, status_code=status.HTTP_201_CREATED, summary="Create a new organization")
