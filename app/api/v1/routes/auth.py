@@ -12,7 +12,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.models.room import StudyRoom
 from app.models.study_room_member import StudyRoomMember
-from app.schemas.user import ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest, TokenResponse, UserResponse
+from app.schemas.user import ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest, TokenResponse, UserResponse, ChangePasswordRequest
 from app.schemas.user import GoogleLoginRequest
 from app.repositories.user_repository import UserRepository
 from app.services.email_service import EmailService
@@ -193,6 +193,22 @@ async def reset_password(payload: ResetPasswordRequest, db: AsyncSession = Depen
 
     return {"message": "Contraseña actualizada exitosamente. Ya puedes iniciar sesión."}
 
+
+@router.post("/change-password", summary="Cambiar contraseña de usuario autenticado")
+async def change_password(payload: ChangePasswordRequest, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if not verify_password(payload.current_password, current_user.password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="La contraseña actual es incorrecta."
+        )
+
+    user_repo = UserRepository(db)
+    current_user.password = get_password_hash(payload.new_password)
+    
+    await user_repo.save(current_user)
+    await db.commit()
+
+    return {"message": "Tu contraseña ha sido actualizada correctamente."}
 
 
 @router.post("/google", response_model=TokenResponse)
