@@ -12,6 +12,7 @@ from app.models.room import StudyRoom
 from app.models.study_room_member import StudyRoomMember
 from app.schemas.organization import OrganizationUpdate, OrganizationResponse
 from app.schemas.invitation import InvitationCreate, InvitationResponse, AcceptInvitationRequest
+from app.services.email_service import EmailService
 
 router = APIRouter()
 
@@ -64,7 +65,15 @@ async def create_invitation(org_id: uuid.UUID, payload: InvitationCreate, db: As
     await db.commit()
     await db.refresh(new_invitation)
     
-    # TODO: Conectar servicio SMTP para mandar correo
+    try:
+        await EmailService.send_invitation_email(
+            email_to=new_invitation.email,
+            room_name=room.name,
+            token=new_invitation.token
+        )
+    except Exception as e:
+        print(f"Error enviando correo de invitación: {e}")
+
     return new_invitation
 
 # Eliminar invitaciones vencidas
