@@ -1,11 +1,13 @@
 import os
 import secrets
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Cookie
+import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 
-from app.core.security import create_access_token, get_password_hash, verify_password, get_current_user
+from app.core.security import create_access_token, create_refresh_token, get_password_hash, verify_password, get_current_user
+from app.core.config import settings
 from app.db.session import get_db
 from app.models.user import User
 from app.models.room import StudyRoom
@@ -31,7 +33,7 @@ async def auth_health_check():
     }
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def register_user(payload: RegisterRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
+async def register_user(payload: RegisterRequest, response: Response, db: AsyncSession = Depends(get_db)) -> TokenResponse:
     user_repo = UserRepository(db)
     
     existing = await user_repo.get_by_email(payload.email)
@@ -63,8 +65,22 @@ async def register_user(payload: RegisterRequest, db: AsyncSession = Depends(get
     await db.commit()
     await db.refresh(user)
 
-    token = create_access_token(user_id=str(user.id), tenant_id=default_room.tenant_id, role="admin")
-    return TokenResponse(access_token=token, token_type="bearer")
+    tenant_id = default_room.tenant_id
+    role = membership.role
+
+    access_token = create_access_token(user_id=str(user.id), tenant_id=tenant_id, role=role)
+    refresh_token = create_refresh_token(user_id=str(user.id), tenant_id=tenant_id, role=role)
+    
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=7 * 24 * 60 * 60
+    )
+    
+    return TokenResponse(access_token=access_token, token_type="bearer")
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -91,6 +107,38 @@ async def login_user(payload: LoginRequest, db: AsyncSession = Depends(get_db)) 
 @router.get("/me", response_model=UserResponse, summary="Get current user info")
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.post("/refresh", response_model=TokenResponse, summary="Refresh access token")
+async def refresh_token(
+    response: Response,
+    refresh_token: str | None = Cookie(default=None),
+    db: AsyncSession = Depends(get_db)
+):
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="Refresh token no encontrado en las cookies. Inicia sesión nuevamente.")
+
+    try:
+        payload = jwt.decode(refresh_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        
+        if payload.get("type") != "refresh":
+            raise HTTPException(status_code=401, detail="Token inválido")
+            
+        user_id = payload.get("sub")
+        tenant_id = payload.get("tenant_id")
+        role = payload.get("role")
+        
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Token malformado")
+            
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Refresh token expirado. Inicia sesión nuevamente.")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Refresh token inválido. Inicia sesión nuevamente.")
+
+    new_access_token = create_access_token(user_id=user_id, tenant_id=tenant_id, role=role)
+    
+    return TokenResponse(access_token=new_access_token, token_type="bearer")
 
 
 @router.post("/google", response_model=TokenResponse)
@@ -152,3 +200,14 @@ async def google_auth(payload: GoogleLoginRequest, db: AsyncSession = Depends(ge
 
         token = create_access_token(user_id=str(user.id), tenant_id=active_tenant_id, role=active_role)
         return TokenResponse(access_token=token, token_type="bearer")
+    
+
+@router.post("/logout", summary="Logout user and clear refresh token cookie")
+async def logout(response: Response):
+    response.delete_cookie(
+        key="refresh_token",
+        httponly=True,
+        secure=False, 
+        samesite="lax"
+    )
+    return {"message": "Sesión cerrada correctamente y cookies limpiadas."}
