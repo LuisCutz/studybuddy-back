@@ -8,18 +8,23 @@ from app.db.session import Base
 
 
 class Document(Base):
-	__tablename__ = "document"
+    __tablename__ = "document"
 
-	id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-	subject_id: Mapped[uuid.UUID] = mapped_column(
-		UUID(as_uuid=True),
-		ForeignKey("subject.id", ondelete="CASCADE"),
-		nullable=False,
-		index=True,
-	)
-	title: Mapped[str] = mapped_column(String(255), nullable=False)
-	file_path: Mapped[str] = mapped_column(String(500), nullable=False)
-	status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")
-	uploaded_at: Mapped[object] = mapped_column(Date, nullable=False, server_default=func.current_date())
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    subject_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("subject.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    file_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")
+    uploaded_at: Mapped[object] = mapped_column(Date, nullable=False, server_default=func.current_date())
 
-	subject: Mapped["Subject"] = relationship(back_populates="documents")
+    subject: Mapped["Subject"] = relationship(back_populates="documents")
+    chat_sessions: Mapped[list["ChatSession"]] = relationship(
+        secondary="chat_session_document",
+        back_populates="documents",
+        cascade="save-update, merge",
+    )

@@ -1,6 +1,7 @@
 from app.db.session import Base
 from app.models.chat import ChatSession
 from app.models.chat_message import ChatMessage
+from app.models.chat_session_document import ChatSessionDocument
 from app.models.document import Document
 from app.models.flashcard import Flashcard
 from app.models.flashcard_deck import FlashcardDeck
@@ -30,6 +31,7 @@ __all__ = [
 	"Flashcard",
 	"ChatSession",
 	"ChatMessage",
+	"ChatSessionDocument",
     "Invitation",
     "AttemptAnswer",
 ]
