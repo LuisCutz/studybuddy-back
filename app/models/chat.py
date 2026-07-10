@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Date, ForeignKey, func
+from sqlalchemy import Date, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -23,8 +23,14 @@ class ChatSession(Base):
         nullable=False,
         index=True,
     )
+    name: Mapped[str] = mapped_column(String(255), nullable=False, default="Nueva sesión")
     started_at: Mapped[object] = mapped_column(Date, nullable=False, server_default=func.current_date())
 
     user: Mapped["User"] = relationship(back_populates="chat_sessions")
     subject: Mapped["Subject"] = relationship(back_populates="chat_sessions")
     messages: Mapped[list["ChatMessage"]] = relationship(back_populates="session", cascade="all, delete-orphan")
+    documents: Mapped[list["Document"]] = relationship(
+        secondary="chat_session_document",
+        back_populates="chat_sessions",
+        cascade="save-update, merge",
+    )
