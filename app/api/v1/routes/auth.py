@@ -5,12 +5,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 
-from app.core.security import create_access_token, get_password_hash, verify_password
+from app.core.security import create_access_token, get_password_hash, verify_password, get_current_user
 from app.db.session import get_db
 from app.models.user import User
 from app.models.room import StudyRoom
 from app.models.study_room_member import StudyRoomMember
-from app.schemas.user import LoginRequest, RegisterRequest, TokenResponse
+from app.schemas.user import LoginRequest, RegisterRequest, TokenResponse, UserResponse
 from app.schemas.user import GoogleLoginRequest
 from app.repositories.user_repository import UserRepository
 
@@ -86,6 +86,11 @@ async def login_user(payload: LoginRequest, db: AsyncSession = Depends(get_db)) 
 
     token = create_access_token(user_id=str(user.id), tenant_id=active_tenant_id, role=active_role)
     return TokenResponse(access_token=token, token_type="bearer")
+
+
+@router.get("/me", response_model=UserResponse, summary="Get current user info")
+async def get_me(current_user: User = Depends(get_current_user)):
+    return current_user
 
 
 @router.post("/google", response_model=TokenResponse)

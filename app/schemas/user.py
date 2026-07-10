@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr
+import uuid
 
 
 class RegisterRequest(BaseModel):
@@ -24,3 +25,8 @@ class LoginResponse(TokenResponse):
 
 class GoogleLoginRequest(BaseModel):
     token: str
+
+class UserResponse(BaseModel):
+    id: uuid.UUID
+    email: EmailStr
+    name: str
