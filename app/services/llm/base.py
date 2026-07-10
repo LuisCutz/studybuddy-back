@@ -24,3 +24,8 @@ class ILLMService(ABC):
     async def generate_streaming_response(self, prompt: str) -> AsyncGenerator[str, None]:
         # Genera una respuesta en tiempo real (token por token).
         pass
+
+    @abstractmethod
+    async def generate_quiz(self, text: str, num_questions: int = 5) -> dict:
+        # Genera un quiz estructurado en JSON a partir de un texto.
+        pass
