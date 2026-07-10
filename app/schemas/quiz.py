@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from uuid import UUID
 from typing import List, Optional
+from datetime import datetime
 
 class GenerateQuizRequest(BaseModel):
     document_id: UUID
@@ -36,3 +37,24 @@ class QuizWithAnswersResponse(QuizResponse):
     
     class Config:
         from_attributes = True
+
+class StartAttemptResponse(BaseModel):
+    attempt_id: UUID
+    started_at: datetime
+    message: str
+
+class SubmitAnswerRequest(BaseModel):
+    question_id: UUID
+    selected_option: str
+
+class SubmitAnswerResponse(BaseModel):
+    is_correct: bool
+    correct_answer: str
+    message: str
+
+class FinishAttemptResponse(BaseModel):
+    attempt_id: UUID
+    score: float
+    completed_at: datetime
+    total_questions: int
+    correct_answers: int
