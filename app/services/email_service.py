@@ -50,3 +50,35 @@ class EmailService:
 
         fm = FastMail(conf)
         await fm.send_message(message)
+
+    @staticmethod
+    async def send_reset_password_email(email_to: EmailStr, token: str):
+        # Envía el correo para reestablecer la contraseña.
+        
+        reset_url = f"http://localhost:5173/reset-password?token={token}"
+        
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; padding: 20px;">
+                <div style="max-width: 600px; margin: 0 auto; background-color: #f9f9f9; padding: 30px; border-radius: 8px;">
+                    <h2 style="color: #333;">Recuperación de contraseña</h2>
+                    <p>Hemos recibido una solicitud para cambiar tu contraseña en StudyBuddy.</p>
+                    <p>Haz clic en el botón de abajo para asignar una nueva (el enlace caduca en 15 minutos):</p>
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="{reset_url}" style="background-color: #EF4444; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Cambiar Contraseña</a>
+                    </div>
+                    <p style="font-size: 12px; color: #666;">Si no solicitaste este cambio, ignora este correo.</p>
+                </div>
+            </body>
+        </html>
+        """
+
+        message = MessageSchema(
+            subject="Recupera tu contraseña - StudyBuddy",
+            recipients=[email_to],
+            body=html_content,
+            subtype=MessageType.html
+        )
+
+        fm = FastMail(conf)
+        await fm.send_message(message)

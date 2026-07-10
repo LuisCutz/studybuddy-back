@@ -6,15 +6,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 
-from app.core.security import create_access_token, create_refresh_token, get_password_hash, verify_password, get_current_user
+from app.core.security import create_access_token, create_refresh_token, create_reset_token, get_password_hash, verify_password, get_current_user
 from app.core.config import settings
 from app.db.session import get_db
 from app.models.user import User
 from app.models.room import StudyRoom
 from app.models.study_room_member import StudyRoomMember
-from app.schemas.user import LoginRequest, RegisterRequest, TokenResponse, UserResponse
+from app.schemas.user import ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest, TokenResponse, UserResponse
 from app.schemas.user import GoogleLoginRequest
 from app.repositories.user_repository import UserRepository
+from app.services.email_service import EmailService
 
 router = APIRouter()
     
@@ -150,6 +151,48 @@ async def refresh_token(
     new_access_token = create_access_token(user_id=user_id, tenant_id=tenant_id, role=role)
     
     return TokenResponse(access_token=new_access_token, token_type="bearer")
+
+
+@router.post("/forgot-password", summary="Solicitar recuperación de contraseña")
+async def forgot_password(payload: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_email(payload.email)
+    
+    if user:
+        reset_token = create_reset_token(email=user.email)
+        try:
+            await EmailService.send_reset_password_email(email_to=user.email, token=reset_token)
+        except Exception as e:
+            print(f"Error enviando correo de recuperación: {e}")
+
+    return {"message": "Si el correo está registrado, recibirás un enlace de recuperación pronto."}
+
+@router.post("/reset-password", summary="Restablecer contraseña con token")
+async def reset_password(payload: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    try:
+        token_data = jwt.decode(payload.token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        
+        if token_data.get("type") != "reset":
+            raise HTTPException(status_code=400, detail="Token inválido para esta operación.")
+            
+        email = token_data.get("sub")
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=400, detail="El token ha expirado. Solicita uno nuevo.")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=400, detail="Token inválido.")
+
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_email(email)
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+
+    user.password = get_password_hash(payload.new_password)
+    await user_repo.save(user)
+    await db.commit()
+
+    return {"message": "Contraseña actualizada exitosamente. Ya puedes iniciar sesión."}
+
 
 
 @router.post("/google", response_model=TokenResponse)
