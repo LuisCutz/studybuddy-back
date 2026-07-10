@@ -13,6 +13,7 @@ from app.models.summary import Summary
 from app.models.subject import Subject
 from app.models.user import User
 from app.models.invitation import Invitation
+from app.models.attempt_answer import AttemptAnswer
 
 __all__ = [
 	"Base",
@@ -30,4 +31,5 @@ __all__ = [
 	"ChatSession",
 	"ChatMessage",
     "Invitation",
+    "AttemptAnswer",
 ]
