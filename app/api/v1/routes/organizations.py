@@ -6,11 +6,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
+from app.core.security import get_current_user
 from app.repositories.invitation_repository import InvitationRepository
 from app.models.invitation import Invitation
 from app.models.room import StudyRoom
+from app.models.user import User
 from app.models.study_room_member import StudyRoomMember
-from app.schemas.organization import OrganizationUpdate, OrganizationResponse
+from app.schemas.organization import OrganizationCreate, OrganizationUpdate, OrganizationResponse
 from app.schemas.invitation import InvitationCreate, InvitationResponse, AcceptInvitationRequest
 from app.services.email_service import EmailService
 
@@ -21,6 +23,34 @@ router = APIRouter()
 async def list_organizations(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(StudyRoom))
     return list(result.scalars().all())
+
+@router.post("/", response_model=OrganizationResponse, status_code=status.HTTP_201_CREATED, summary="Create a new organization")
+async def create_organization(
+    payload: OrganizationCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    new_room = StudyRoom(
+        name=payload.name,
+        description=payload.description,
+        tenant_id="pending"
+    )
+    db.add(new_room)
+    await db.flush()
+
+    new_room.tenant_id = f"room_{new_room.id}"
+    
+    membership = StudyRoomMember(
+        user_id=current_user.id,
+        room_id=new_room.id,
+        role="admin"
+    )
+    db.add(membership)
+    
+    await db.commit()
+    await db.refresh(new_room)
+
+    return new_room
 
 # Actualizar organización
 @router.put("/{org_id}", response_model=OrganizationResponse, summary="Update organization details")
