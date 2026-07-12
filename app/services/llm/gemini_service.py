@@ -6,6 +6,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmb
 from typing import AsyncGenerator
 
 from app.schemas.quiz_gen import GeneratedQuiz
+from app.schemas.flashcard_gen import FlashcardFormat, FlashcardListFormat
 from app.services.llm.base import ILLMService
 
 class GeminiService(ILLMService):
@@ -68,3 +69,53 @@ class GeminiService(ILLMService):
         
         chain = prompt | self.llm | parser
         return await chain.ainvoke({"num_questions": num_questions, "text": text})
+    
+    async def generate_flashcards(self, text: str, num_cards: int) -> dict:
+        parser = JsonOutputParser(pydantic_object=FlashcardListFormat)
+        
+        template = """
+        Eres un experto creando material de estudio. 
+        Tu tarea es extraer los conceptos más importantes y generar {num_cards} flashcards a partir del texto proporcionado.
+        
+        TEXTO:
+        {text}
+        
+        INSTRUCCIONES DE FORMATO:
+        {format_instructions}
+        """
+        
+        prompt = PromptTemplate(
+            template=template,
+            input_variables=["num_cards", "text"],
+            partial_variables={"format_instructions": parser.get_format_instructions()}
+        )
+        
+        chain = prompt | self.llm | parser
+        return await chain.ainvoke({"num_cards": num_cards, "text": text})
+
+    async def edit_flashcard(self, front: str, back: str, instructions: str) -> dict:
+        parser = JsonOutputParser(pydantic_object=FlashcardFormat)
+        
+        template = """
+        Eres un asistente de estudio. Modifica la siguiente flashcard siguiendo EXACTAMENTE las instrucciones del usuario.
+        
+        FRENTE ACTUAL: {front}
+        REVERSO ACTUAL: {back}
+        INSTRUCCIONES DEL USUARIO: {instructions}
+        
+        INSTRUCCIONES DE FORMATO:
+        {format_instructions}
+        """
+        
+        prompt = PromptTemplate(
+            template=template,
+            input_variables=["front", "back", "instructions"],
+            partial_variables={"format_instructions": parser.get_format_instructions()}
+        )
+        
+        chain = prompt | self.llm | parser
+        return await chain.ainvoke({
+            "front": front, 
+            "back": back, 
+            "instructions": instructions
+        })

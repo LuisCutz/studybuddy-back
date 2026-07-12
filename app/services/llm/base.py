@@ -29,3 +29,13 @@ class ILLMService(ABC):
     async def generate_quiz(self, text: str, num_questions: int = 5) -> dict:
         # Genera un quiz estructurado en JSON a partir de un texto.
         pass
+
+    @abstractmethod
+    async def generate_flashcards(self, text: str, num_cards: int) -> dict:
+        # Genera un mazo estructurado en JSON a partir de un texto.
+        pass
+
+    @abstractmethod
+    async def edit_flashcard(self, front: str, back: str, instructions: str) -> dict:
+        # Edita una flashcard existente basándose en instrucciones y devuelve un JSON.
+        pass
