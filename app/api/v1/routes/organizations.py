@@ -78,10 +78,21 @@ async def create_organization(
 
 # Actualizar organización
 @router.put("/{org_id}", response_model=OrganizationResponse, summary="Update organization details")
-async def update_organization(org_id: uuid.UUID, payload: OrganizationUpdate, db: AsyncSession = Depends(get_db)):
+async def update_organization(
+    org_id: uuid.UUID,
+    payload: OrganizationUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    member_check = await db.execute(
+        select(StudyRoomMember).where(StudyRoomMember.room_id == org_id, StudyRoomMember.user_id == current_user.id)
+    )
+    membership = member_check.scalar_one_or_none()
+    if not membership or membership.role != "admin":
+        raise HTTPException(status_code=403, detail="Solo los administradores pueden editar la organización.")
+    
     result = await db.execute(select(StudyRoom).where(StudyRoom.id == org_id))
     room = result.scalar_one_or_none()
-    
     if not room:
         raise HTTPException(status_code=404, detail="Organización no encontrada")
     
@@ -97,7 +108,19 @@ async def update_organization(org_id: uuid.UUID, payload: OrganizationUpdate, db
 
 # Enviar invitaciones
 @router.post("/{org_id}/invitations", response_model=InvitationResponse, summary="Create and send an invitation")
-async def create_invitation(org_id: uuid.UUID, payload: InvitationCreate, db: AsyncSession = Depends(get_db)):
+async def create_invitation(
+    org_id: uuid.UUID,
+    payload: InvitationCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    member_check = await db.execute(
+        select(StudyRoomMember).where(StudyRoomMember.room_id == org_id, StudyRoomMember.user_id == current_user.id)
+    )
+    membership = member_check.scalar_one_or_none()
+    if not membership or membership.role != "admin":
+        raise HTTPException(status_code=403, detail="No tienes permisos para invitar a esta organización.")
+    
     result = await db.execute(select(StudyRoom).where(StudyRoom.id == org_id))
     room = result.scalar_one_or_none()
     if not room:
@@ -140,7 +163,11 @@ async def delete_expired_invitations(db: AsyncSession = Depends(get_db)):
 
 # Aceptar invitaciones
 @router.post("/invitations/accept", summary="Accept an invitation via token")
-async def accept_invitation(payload: AcceptInvitationRequest, db: AsyncSession = Depends(get_db)):
+async def accept_invitation(
+    payload: AcceptInvitationRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
     inv_repo = InvitationRepository(db)
     invitation = await inv_repo.get_by_token(payload.token)
     
@@ -152,12 +179,18 @@ async def accept_invitation(payload: AcceptInvitationRequest, db: AsyncSession =
         
     if invitation.status == "accepted":
         raise HTTPException(status_code=400, detail="Esta invitación ya fue aceptada previamente.")
+    
+    member_check = await db.execute(
+        select(StudyRoomMember).where(StudyRoomMember.room_id == invitation.room_id, StudyRoomMember.user_id == current_user.id)
+    )
+    if member_check.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Ya eres miembro de esta organización.")
 
     invitation.status = "accepted"
     await inv_repo.save(invitation)
 
     membership = StudyRoomMember(
-        user_id=payload.user_id,
+        user_id=current_user.id,
         room_id=invitation.room_id,
         role=invitation.role
     )
