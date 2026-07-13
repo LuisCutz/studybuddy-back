@@ -16,6 +16,21 @@ from app.schemas.flashcard import DeckResponse
 
 router = APIRouter()
 
+
+@router.get("/health", summary="Check Progress API Health")
+async def progress_health_check():
+    return {
+        "status": "ok",
+        "module": "Progress API",
+        "version": "v1",
+        "visibility": "private",
+        "requires_jwt": True,
+        "documentation": {
+            "swagger_url": "/docs",
+            "openapi_json_url": "/openapi.json",
+        },
+    }
+
 @router.get("/me", response_model=StudentProgressResponse, summary="Obtener estadísticas generales del usuario")
 async def get_my_progress(
     current_user: User = Depends(get_current_user),

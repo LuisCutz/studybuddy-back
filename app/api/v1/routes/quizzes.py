@@ -21,6 +21,21 @@ from app.services.storage import StorageService
 
 router = APIRouter()
 
+
+@router.get("/health", summary="Check Quizzes API Health")
+async def quizzes_health_check():
+    return {
+        "status": "ok",
+        "module": "Quizzes API",
+        "version": "v1",
+        "visibility": "private",
+        "requires_jwt": True,
+        "documentation": {
+            "swagger_url": "/docs",
+            "openapi_json_url": "/openapi.json",
+        },
+    }
+
 async def extract_text_from_r2(file_path: str) -> str:
     # Descarga el PDF usando StorageService y extrae el texto en memoria.
     storage = StorageService()

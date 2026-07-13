@@ -18,6 +18,21 @@ from app.services.email_service import EmailService
 
 router = APIRouter()
 
+
+@router.get("/health", summary="Check Organizations API Health")
+async def organizations_health_check():
+    return {
+        "status": "ok",
+        "module": "Organizations API",
+        "version": "v1",
+        "visibility": "private",
+        "requires_jwt": True,
+        "documentation": {
+            "swagger_url": "/docs",
+            "openapi_json_url": "/openapi.json",
+        },
+    }
+
 # Listar organizaciones
 @router.get("/", response_model=list[OrganizationResponse], summary="List user's organizations")
 async def list_organizations(

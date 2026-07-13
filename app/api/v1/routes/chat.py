@@ -19,6 +19,21 @@ from app.services.chat_service import ChatService
 router = APIRouter()
 
 
+@router.get("/health", summary="Check Chat API Health")
+async def chat_health_check():
+    return {
+        "status": "ok",
+        "module": "Chat API",
+        "version": "v1",
+        "visibility": "private",
+        "requires_jwt": True,
+        "documentation": {
+            "swagger_url": "/docs",
+            "openapi_json_url": "/openapi.json",
+        },
+    }
+
+
 @router.post("/sessions", response_model=ChatSessionResponse, status_code=status.HTTP_201_CREATED)
 async def create_chat_session(
     payload: ChatSessionCreate,

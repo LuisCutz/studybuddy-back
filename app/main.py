@@ -18,4 +18,14 @@ app.add_middleware(
 
 @app.get("/")
 def health_check():
-    return {"status": "ok", "version": "1.0.0"}
+    return {
+        "status": "ok",
+        "module": "StudyBuddy API",
+        "version": "1.0.0",
+        "visibility": "public",
+        "requires_jwt": False,
+        "documentation": {
+            "swagger_url": "/docs",
+            "openapi_json_url": "/openapi.json",
+        },
+    }
