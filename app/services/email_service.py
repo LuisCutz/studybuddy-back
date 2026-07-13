@@ -1,6 +1,7 @@
 import os
 from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
 from pydantic import EmailStr
+from app.core.config import settings
 
 conf = ConnectionConfig(
     MAIL_USERNAME=os.getenv("SMTP_USERNAME"),
@@ -19,7 +20,7 @@ class EmailService:
     async def send_invitation_email(email_to: EmailStr, room_name: str, token: str):
         # Envía un correo HTML usando los servidores de Gmail.
         
-        invitation_url = f"http://localhost:8000/api/v1/organizations/invitations/accept?token={token}"
+        invitation_url = f"{settings.FRONTEND_URL}/invitations/accept?token={token}"
         
         html_content = f"""
         <html>
