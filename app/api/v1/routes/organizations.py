@@ -154,12 +154,24 @@ async def create_invitation(
     return new_invitation
 
 # Eliminar invitaciones vencidas
-@router.delete("/invitations/expired", summary="Delete expired invitations")
-async def delete_expired_invitations(db: AsyncSession = Depends(get_db)):
+@router.delete("/{org_id}/invitations/expired", summary="Delete expired invitations for an organization")
+async def delete_expired_invitations(
+    org_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    member_check = await db.execute(
+        select(StudyRoomMember).where(StudyRoomMember.room_id == org_id, StudyRoomMember.user_id == current_user.id)
+    )
+    membership = member_check.scalar_one_or_none()
+    if not membership or membership.role != "admin":
+        raise HTTPException(status_code=403, detail="Solo los administradores pueden limpiar las invitaciones.")
+
     inv_repo = InvitationRepository(db)
-    await inv_repo.delete_expired(datetime.utcnow())
+    await inv_repo.delete_expired_by_room(org_id, datetime.utcnow())
     await db.commit()
-    return {"message": "Invitaciones vencidas eliminadas correctamente."}
+    
+    return {"message": "Invitaciones vencidas de tu organización eliminadas correctamente."}
 
 # Aceptar invitaciones
 @router.post("/invitations/accept", summary="Accept an invitation via token")

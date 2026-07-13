@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +19,10 @@ class InvitationRepository:
         await self.db.flush()
         return invitation
 
-    async def delete_expired(self, current_time: datetime):
-        # Elimina las invitaciones vencidas de la base de datos.
-        await self.db.execute(delete(Invitation).where(Invitation.expires_at < current_time))
-        await self.db.flush()
+    async def delete_expired_by_room(self, room_id: uuid.UUID, current_time: datetime) -> None:
+        # Elimina únicamente las invitaciones que ya expiraron y que pertenecen a una sala específica.
+        stmt = delete(Invitation).where(
+            Invitation.room_id == room_id,
+            Invitation.expires_at < current_time
+        )
+        await self.db.execute(stmt)
