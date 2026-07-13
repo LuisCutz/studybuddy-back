@@ -36,7 +36,7 @@ async def process_document_background(document_id: uuid.UUID, file_path: str):
             
             vector_service = VectorStoreService()
             await vector_service.add_documents(
-                subject_id=document.subject_id,
+                room_id=document.room_id,
                 document_id=document.id,
                 chunks=chunks
             )
@@ -73,7 +73,7 @@ async def documents_health_check():
 @router.post("/", response_model=DocumentResponse)
 async def upload_document(
     background_tasks: BackgroundTasks,
-    subject_id: uuid.UUID = Form(...), 
+    room_id: uuid.UUID = Form(...), 
     title: str = Form(...),
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db)
@@ -83,7 +83,7 @@ async def upload_document(
 
     storage_service = StorageService()
     file_extension = file.filename.split('.')[-1]
-    unique_filename = f"subjects/{subject_id}/{uuid.uuid4()}.{file_extension}"
+    unique_filename = f"rooms/{room_id}/{uuid.uuid4()}.{file_extension}"
     
     try:
         r2_path = await storage_service.upload_file(file, unique_filename)
@@ -91,7 +91,7 @@ async def upload_document(
         raise HTTPException(status_code=500, detail=str(e))
 
     new_document = Document(
-        subject_id=subject_id,
+        room_id=room_id,
         title=title,
         file_path=r2_path,
         status="pending"
@@ -137,7 +137,7 @@ async def delete_document(document_id: uuid.UUID, db: AsyncSession = Depends(get
         
         vector_service = VectorStoreService()
         await vector_service.delete_document_embeddings(
-            subject_id=document.subject_id,
+            room_id=document.room_id,
             document_id=document.id
         )
     except Exception as e:
@@ -169,7 +169,7 @@ async def get_document_summary(
     try:
         vector_service = VectorStoreService()
         index_text = await vector_service.get_document_index_chunks(
-            subject_id=document.subject_id,
+            room_id=document.room_id,
             document_id=document.id
         )
         

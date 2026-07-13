@@ -18,7 +18,7 @@ class QuestionResponse(BaseModel):
 
 class QuizResponse(BaseModel):
     id: UUID
-    subject_id: UUID
+    room_id: UUID
     title: str
     topic: str
     questions: List[QuestionResponse] = []

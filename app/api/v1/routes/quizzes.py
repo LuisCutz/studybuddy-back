@@ -64,7 +64,7 @@ async def generate_quiz(
         raise HTTPException(status_code=500, detail=f"Error al generar el quiz con IA: {str(e)}")
         
     new_quiz = Quiz(
-        subject_id=document.subject_id,
+        room_id=document.room_id,
         title=quiz_data.get("title", f"Quiz de {document.title}"),
         topic=quiz_data.get("topic", "Tema general")
     )

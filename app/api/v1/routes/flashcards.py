@@ -31,7 +31,7 @@ async def create_empty_deck(
     db: AsyncSession = Depends(get_db)
 ):
     new_deck = FlashcardDeck(
-        subject_id=payload.subject_id,
+        room_id=payload.room_id,
         user_id=current_user.id,
         title=payload.title,
         description=payload.description
@@ -65,7 +65,7 @@ async def generate_deck(
     generated_data = await llm_service.generate_flashcards(text=text, num_cards=payload.num_cards)
 
     new_deck = FlashcardDeck(
-        subject_id=document.subject_id,
+        room_id=document.room_id,
         user_id=current_user.id,
         title=generated_data.get("title", f"Flashcards de {document.title}"),
         description=payload.description or "Generado con IA"

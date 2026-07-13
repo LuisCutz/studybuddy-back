@@ -10,15 +10,15 @@ class Quiz(Base):
 	__tablename__ = "quiz"
 
 	id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-	subject_id: Mapped[uuid.UUID] = mapped_column(
+	room_id: Mapped[uuid.UUID] = mapped_column(
 		UUID(as_uuid=True),
-		ForeignKey("subject.id", ondelete="CASCADE"),
+		ForeignKey("study_room.id", ondelete="CASCADE"),
 		nullable=False,
 		index=True,
 	)
 	title: Mapped[str] = mapped_column(String(255), nullable=False)
 	topic: Mapped[str] = mapped_column(String(255), nullable=False)
 
-	subject: Mapped["Subject"] = relationship(back_populates="quizzes")
+	room: Mapped["StudyRoom"] = relationship(back_populates="quizzes")
 	questions: Mapped[list["Question"]] = relationship(back_populates="quiz", cascade="all, delete-orphan")
 	attempts: Mapped[list["QuizAttempt"]] = relationship(back_populates="quiz", cascade="all, delete-orphan")

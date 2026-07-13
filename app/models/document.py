@@ -11,9 +11,9 @@ class Document(Base):
     __tablename__ = "document"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    subject_id: Mapped[uuid.UUID] = mapped_column(
+    room_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("subject.id", ondelete="CASCADE"),
+        ForeignKey("study_room.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -22,7 +22,7 @@ class Document(Base):
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")
     uploaded_at: Mapped[object] = mapped_column(Date, nullable=False, server_default=func.current_date())
 
-    subject: Mapped["Subject"] = relationship(back_populates="documents")
+    room: Mapped["StudyRoom"] = relationship(back_populates="documents")
     chat_sessions: Mapped[list["ChatSession"]] = relationship(
         secondary="chat_session_document",
         back_populates="documents",

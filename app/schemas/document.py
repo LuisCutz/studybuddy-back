@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 class DocumentResponse(BaseModel):
     id: uuid.UUID
-    subject_id: uuid.UUID
+    room_id: uuid.UUID
     title: str
     file_path: str
     status: str

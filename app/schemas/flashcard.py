@@ -20,7 +20,7 @@ class FlashcardLLMEditRequest(BaseModel):
     instructions: str
 
 class DeckCreateEmpty(BaseModel):
-    subject_id: UUID
+    room_id: UUID
     title: str
     description: Optional[str] = None
 
@@ -35,7 +35,7 @@ class DeckUpdate(BaseModel):
 
 class DeckResponse(BaseModel):
     id: UUID
-    subject_id: UUID
+    room_id: UUID
     user_id: UUID
     title: str
     description: Optional[str] = None
