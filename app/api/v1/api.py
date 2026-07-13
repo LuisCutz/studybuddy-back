@@ -1,7 +1,22 @@
 from fastapi import APIRouter
-from app.api.v1.routes import auth, chat, documents, quizzes, organizations, flashcards, progress
+from app.api.v1.routes import auth, chat, documents, flashcards, organizations, progress, quizzes
 
 api_router = APIRouter()
+
+
+@api_router.get("/health", summary="Check API v1 Health")
+async def api_v1_health_check():
+	return {
+		"status": "ok",
+		"module": "API v1",
+		"version": "v1",
+		"visibility": "public",
+		"requires_jwt": False,
+		"documentation": {
+			"swagger_url": "/docs",
+			"openapi_json_url": "/openapi.json",
+		},
+	}
 
 api_router.include_router(documents.router, prefix="/documents", tags=["Documents"])
 api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])

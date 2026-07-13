@@ -24,6 +24,21 @@ from app.schemas.flashcard import (
 router = APIRouter()
 
 
+@router.get("/health", summary="Check Flashcards API Health")
+async def flashcards_health_check():
+    return {
+        "status": "ok",
+        "module": "Flashcards API",
+        "version": "v1",
+        "visibility": "private",
+        "requires_jwt": True,
+        "documentation": {
+            "swagger_url": "/docs",
+            "openapi_json_url": "/openapi.json",
+        },
+    }
+
+
 @router.post("/decks", response_model=DeckResponse, status_code=status.HTTP_201_CREATED)
 async def create_empty_deck(
     payload: DeckCreateEmpty,
