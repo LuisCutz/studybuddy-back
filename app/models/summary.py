@@ -11,9 +11,9 @@ class Summary(Base):
 	__tablename__ = "summary"
 
 	id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-	subject_id: Mapped[uuid.UUID] = mapped_column(
+	room_id: Mapped[uuid.UUID] = mapped_column(
 		UUID(as_uuid=True),
-		ForeignKey("subject.id", ondelete="CASCADE"),
+		ForeignKey("study_room.id", ondelete="CASCADE"),
 		nullable=False,
 		index=True,
 	)
@@ -21,4 +21,4 @@ class Summary(Base):
 	summary_type: Mapped[str] = mapped_column(String(100), nullable=False)
 	topic_name: Mapped[str] = mapped_column(String(255), nullable=False)
 
-	subject: Mapped["Subject"] = relationship(back_populates="summaries")
+	room: Mapped["StudyRoom"] = relationship(back_populates="summaries")

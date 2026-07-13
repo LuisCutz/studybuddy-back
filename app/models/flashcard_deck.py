@@ -10,9 +10,9 @@ class FlashcardDeck(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     
-    subject_id: Mapped[uuid.UUID] = mapped_column(
+    room_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("subject.id", ondelete="CASCADE"),
+        ForeignKey("study_room.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -28,7 +28,7 @@ class FlashcardDeck(Base):
     
     description: Mapped[str | None] = mapped_column(String, nullable=True)
 
-    subject: Mapped["Subject"] = relationship()
+    room: Mapped["StudyRoom"] = relationship(back_populates="flashcard_decks")
     user: Mapped["User"] = relationship()
     flashcards: Mapped[list["Flashcard"]] = relationship(back_populates="deck", cascade="all, delete-orphan")
     views: Mapped[list["FlashcardDeckView"]] = relationship(back_populates="deck", cascade="all, delete-orphan")

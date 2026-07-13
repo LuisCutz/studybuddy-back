@@ -17,9 +17,9 @@ class ChatSession(Base):
         nullable=False,
         index=True,
     )
-    subject_id: Mapped[uuid.UUID] = mapped_column(
+    room_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("subject.id", ondelete="CASCADE"),
+        ForeignKey("study_room.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -27,7 +27,7 @@ class ChatSession(Base):
     started_at: Mapped[object] = mapped_column(Date, nullable=False, server_default=func.current_date())
 
     user: Mapped["User"] = relationship(back_populates="chat_sessions")
-    subject: Mapped["Subject"] = relationship(back_populates="chat_sessions")
+    room: Mapped["StudyRoom"] = relationship(back_populates="chat_sessions")
     messages: Mapped[list["ChatMessage"]] = relationship(back_populates="session", cascade="all, delete-orphan")
     documents: Mapped[list["Document"]] = relationship(
         secondary="chat_session_document",
