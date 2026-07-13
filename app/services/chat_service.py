@@ -50,7 +50,7 @@ Mensaje actual del usuario:
     async def create_session(
         self,
         user_id: uuid.UUID,
-        subject_id: uuid.UUID,
+        room_id: uuid.UUID,
         name: str | None,
         document_ids: list[uuid.UUID],
     ) -> ChatSession:
@@ -64,12 +64,12 @@ Mensaje actual del usuario:
             if len(documents) != len(set(document_ids)):
                 raise ValueError("Uno o más documentos no existen.")
             for document in documents:
-                if document.subject_id != subject_id:
-                    raise ValueError("Los documentos deben pertenecer a la misma materia de la sesión.")
+                if document.room_id != room_id:
+                    raise ValueError("Los documentos deben pertenecer a la misma sala de la sesión.")
 
         session = ChatSession(
             user_id=user_id,
-            subject_id=subject_id,
+            room_id=room_id,
             name=name or "Nueva sesión",
             documents=documents
         )
@@ -127,8 +127,8 @@ Mensaje actual del usuario:
                 if len(documents) != len(set(document_ids)):
                     raise ValueError("Uno o más documentos no existen.")
                 for document in documents:
-                    if document.subject_id != session.subject_id:
-                        raise ValueError("Los documentos deben pertenecer a la misma materia de la sesión.")
+                    if document.room_id != session.room_id:
+                        raise ValueError("Los documentos deben pertenecer a la misma sala de la sesión.")
             else:
                 documents = []
             session.documents = documents
@@ -281,7 +281,7 @@ Mensaje actual del usuario:
         context_chunks: list[str] = []
         citations: list[dict[str, Any]] = []
         for document in session.documents:
-            vector_store = vector_service.get_vector_store(session.subject_id)
+            vector_store = vector_service.get_vector_store(session.room_id)
             results = vector_store.similarity_search(
                 query=query,
                 k=3,

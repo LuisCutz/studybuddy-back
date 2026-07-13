@@ -9,36 +9,36 @@ class VectorStoreService:
         self.llm_service = get_llm_service()
         self.embeddings = self.llm_service.get_embeddings()
 
-    def get_vector_store(self, subject_id: uuid.UUID) -> Chroma:
-        # Obtiene o crea una colección de Chroma aislada por materia.
-        collection_name = f"subject_{str(subject_id).replace('-', '_')}"
+    def get_vector_store(self, room_id: uuid.UUID) -> Chroma:
+        # Obtiene o crea una colección de Chroma aislada por sala.
+        collection_name = f"room_{str(room_id).replace('-', '_')}"
         return Chroma(
             collection_name=collection_name,
             embedding_function=self.embeddings,
             persist_directory=self.persist_directory
         )
 
-    async def add_documents(self, subject_id: uuid.UUID, document_id: uuid.UUID, chunks):
+    async def add_documents(self, room_id: uuid.UUID, document_id: uuid.UUID, chunks):
         # Indexa los chunks de LangChain en ChromaDB agregando metadata de control.
         # Sellar cada pedacito con metadatos para búsquedas y borrados quirúrgicos.
         for chunk in chunks:
             chunk.metadata["document_id"] = str(document_id)
-            chunk.metadata["subject_id"] = str(subject_id)
+            chunk.metadata["room_id"] = str(room_id)
 
-        vector_store = self.get_vector_store(subject_id)
+        vector_store = self.get_vector_store(room_id)
         
         vector_store.add_documents(chunks)
-        print(f"[VectorStore] {len(chunks)} chunks guardados exitosamente en ChromaDB para la materia {subject_id}")
+        print(f"[VectorStore] {len(chunks)} chunks guardados exitosamente en ChromaDB para la sala {room_id}")
 
-    async def delete_document_embeddings(self, subject_id: uuid.UUID, document_id: uuid.UUID):
+    async def delete_document_embeddings(self, room_id: uuid.UUID, document_id: uuid.UUID):
         # Elimina de forma permanente todos los vectores pertenecientes a un documento.
-        vector_store = self.get_vector_store(subject_id)
+        vector_store = self.get_vector_store(room_id)
         vector_store.delete(where={"document_id": str(document_id)})
         print(f"[VectorStore] Vectores del documento {document_id} purgados de ChromaDB.")
 
-    async def get_document_index_chunks(self, subject_id: uuid.UUID, document_id: uuid.UUID) -> str:
+    async def get_document_index_chunks(self, room_id: uuid.UUID, document_id: uuid.UUID) -> str:
         # Busca en ChromaDB los fragmentos que probablemente contienen el índice o temario.
-        vector_store = self.get_vector_store(subject_id)
+        vector_store = self.get_vector_store(room_id)
 
         # Palabras clave para atraer matemáticamente a los vectores del índice
         query = "Índice tabla de contenido temario contenido units chapters"
