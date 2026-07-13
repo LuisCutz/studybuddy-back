@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 
 class ChatSessionCreate(BaseModel):
-    subject_id: uuid.UUID
+    room_id: uuid.UUID
     name: str | None = None
     document_ids: list[uuid.UUID] = Field(default_factory=list)
 
@@ -43,7 +43,7 @@ class ChatMessageResponse(BaseModel):
 class ChatSessionResponse(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
-    subject_id: uuid.UUID
+    room_id: uuid.UUID
     name: str
     started_at: date
     documents: list[DocumentSummary] = Field(default_factory=list)
