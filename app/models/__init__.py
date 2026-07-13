@@ -16,6 +16,7 @@ from app.models.user import User
 from app.models.invitation import Invitation
 from app.models.attempt_answer import AttemptAnswer
 from app.models.flashcard_deck_view import FlashcardDeckView
+from app.models.daily_activity import DailyActivity
 
 __all__ = [
 	"Base",
@@ -35,5 +36,6 @@ __all__ = [
 	"ChatSessionDocument",
     "Invitation",
     "AttemptAnswer",
-    "FlashcardDeckView"
+    "FlashcardDeckView",
+	"DailyActivity"
 ]
