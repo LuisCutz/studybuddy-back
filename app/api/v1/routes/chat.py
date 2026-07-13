@@ -29,7 +29,7 @@ async def create_chat_session(
     try:
         session = await service.create_session(
             user_id=current_user.id,
-            subject_id=payload.subject_id,
+            room_id=payload.room_id,
             name=payload.name,
             document_ids=payload.document_ids,
         )
