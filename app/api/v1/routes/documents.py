@@ -3,12 +3,15 @@ from fastapi import APIRouter, Depends, UploadFile, File, Form, BackgroundTasks,
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.security import get_current_user
 from app.db.session import get_db, AsyncSessionLocal
+from app.models.study_room_member import StudyRoomMember
 from app.services.storage import StorageService
 from app.services.document_processor import DocumentProcessor
 from app.services.vector_store import VectorStoreService
 from app.services.llm.factory import get_llm_service
 from app.models.document import Document
+from app.models.user import User
 from app.schemas.document import DocumentResponse
 from app.repositories.document_repository import DocumentRepository
 
@@ -76,8 +79,15 @@ async def upload_document(
     room_id: uuid.UUID = Form(...), 
     title: str = Form(...),
     file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    member_check = await db.execute(
+        select(StudyRoomMember).where(StudyRoomMember.room_id == room_id, StudyRoomMember.user_id == current_user.id)
+    )
+    if not member_check.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail="No tienes acceso a esta sala de estudio.")
+    
     if not file.filename.lower().endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Solo se permiten archivos PDF.")
 
@@ -107,11 +117,22 @@ async def upload_document(
 
 # Descargar pdf
 @router.get("/{document_id}/download")
-async def get_document_download_url(document_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def get_document_download_url(
+    document_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+    ):
     doc_repo = DocumentRepository(db)
     document = await doc_repo.get_by_id(document_id)
     if not document:
         raise HTTPException(status_code=404, detail="Documento no encontrado.")
+    
+    member_check = await db.execute(
+        select(StudyRoomMember).where(StudyRoomMember.room_id == document.room_id, StudyRoomMember.user_id == current_user.id)
+    )
+    if not member_check.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail="No tienes acceso a este documento.")
+    
     storage_service = StorageService()
     file_key = document.file_path.split(f"{storage_service.bucket_name}/")[-1]
     try:
@@ -122,12 +143,22 @@ async def get_document_download_url(document_id: uuid.UUID, db: AsyncSession = D
 
 # Eliminar documento
 @router.delete("/{document_id}")
-async def delete_document(document_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def delete_document(
+    document_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+    ):
     doc_repo = DocumentRepository(db)
     document = await doc_repo.get_by_id(document_id)
     
     if not document:
         raise HTTPException(status_code=404, detail="Documento no encontrado.")
+
+    member_check = await db.execute(
+        select(StudyRoomMember).where(StudyRoomMember.room_id == document.room_id, StudyRoomMember.user_id == current_user.id)
+    )
+    if not member_check.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail="No tienes permisos para eliminar en esta sala.")
         
     storage_service = StorageService()
     file_key = document.file_path.split(f"{storage_service.bucket_name}/")[-1]
@@ -152,6 +183,7 @@ async def delete_document(document_id: uuid.UUID, db: AsyncSession = Depends(get
 @router.get("/{document_id}/summary")
 async def get_document_summary(
     document_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     doc_repo = DocumentRepository(db)
@@ -159,6 +191,12 @@ async def get_document_summary(
     
     if not document:
         raise HTTPException(status_code=404, detail="Documento no encontrado.")
+
+    member_check = await db.execute(
+        select(StudyRoomMember).where(StudyRoomMember.room_id == document.room_id, StudyRoomMember.user_id == current_user.id)
+    )
+    if not member_check.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail="No tienes acceso a este documento.")
         
     if document.status != "completed":
         raise HTTPException(
