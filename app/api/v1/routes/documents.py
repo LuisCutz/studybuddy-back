@@ -35,7 +35,7 @@ async def process_document_background(document_id: uuid.UUID, file_path: str):
             
             file_key = file_path.split(f"{storage_service.bucket_name}/")[-1]
             
-            chunks = await processor.process_pdf(file_key)
+            chunks = await processor.process_file(file_key, document.file_path)
             
             vector_service = VectorStoreService()
             await vector_service.add_documents(
@@ -88,11 +88,16 @@ async def upload_document(
     if not member_check.scalar_one_or_none():
         raise HTTPException(status_code=403, detail="No tienes acceso a esta sala de estudio.")
     
-    if not file.filename.lower().endswith('.pdf'):
-        raise HTTPException(status_code=400, detail="Solo se permiten archivos PDF.")
+    allowed_extensions = {".pdf", ".pptx", ".docx", ".txt"}
+    file_extension = f".{file.filename.split('.')[-1].lower()}"
+    
+    if file_extension not in allowed_extensions:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Formato no soportado. Solo se permiten: {', '.join(allowed_extensions)}"
+        )
 
     storage_service = StorageService()
-    file_extension = file.filename.split('.')[-1]
     unique_filename = f"rooms/{room_id}/{uuid.uuid4()}.{file_extension}"
     
     try:
