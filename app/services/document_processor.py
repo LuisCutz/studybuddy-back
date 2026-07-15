@@ -2,7 +2,9 @@ import os
 import tempfile
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document as LangchainDocument
 from app.services.storage import StorageService
+from app.services.text_extractor import extract_text_from_bytes
 
 class DocumentProcessor:
     def __init__(self):
@@ -40,3 +42,24 @@ class DocumentProcessor:
         finally:
             if os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
+
+    async def process_file(self, file_key: str, filename: str):
+        # Descarga el archivo, extrae su texto sin importar el formato y lo parte en chunks para RAG.
+        
+        storage = StorageService()
+        file_bytes = await storage.get_file_content(file_key)
+
+        text = await extract_text_from_bytes(file_bytes, filename)
+
+        if not text.strip():
+             raise ValueError(f"No se pudo extraer texto del archivo {filename}.")
+
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=200,
+            separators=["\n\n", "\n", ".", " ", ""]
+        )
+        chunks_text = text_splitter.split_text(text)
+
+        docs = [LangchainDocument(page_content=chunk) for chunk in chunks_text]
+        return docs
