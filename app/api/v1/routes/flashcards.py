@@ -14,6 +14,7 @@ from app.models.flashcard import Flashcard
 from app.models.flashcard_deck_view import FlashcardDeckView
 from app.services.llm.factory import get_llm_service
 from app.services.storage import StorageService
+from app.services.text_extractor import extract_text_from_bytes
 
 from app.schemas.flashcard import (
     DeckCreateEmpty, DeckGenerateRequest, DeckUpdate, 
@@ -71,10 +72,7 @@ async def generate_deck(
     file_key = document.file_path.split("/", 1)[1] if "/" in document.file_path else document.file_path
     pdf_bytes = await storage.get_file_content(file_key)
     
-    text = ""
-    with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
-        for page in doc:
-            text += page.get_text()
+    text = await extract_text_from_bytes(pdf_bytes, document.file_path)
 
     llm_service = get_llm_service()
     generated_data = await llm_service.generate_flashcards(text=text, num_cards=payload.num_cards)

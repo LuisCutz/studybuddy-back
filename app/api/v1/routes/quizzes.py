@@ -18,6 +18,7 @@ from app.models.question import Question
 from app.schemas.quiz import FinishAttemptResponse, GenerateQuizRequest, QuizResponse, QuizWithAnswersResponse, StartAttemptResponse, SubmitAnswerRequest, SubmitAnswerResponse
 from app.services.llm.factory import get_llm_service
 from app.services.storage import StorageService
+from app.services.text_extractor import extract_text_from_bytes
 
 router = APIRouter()
 
@@ -46,12 +47,9 @@ async def extract_text_from_r2(file_path: str) -> str:
         
     pdf_bytes = await storage.get_file_content(file_key)
     
-    text = ""
-    with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
-        for page in doc:
-            text += page.get_text()
-            
-    return text
+    file_bytes = await storage.get_file_content(file_key)
+    
+    return await extract_text_from_bytes(file_bytes, file_path)
 
 
 @router.post("/generate", response_model=QuizResponse, status_code=status.HTTP_201_CREATED)
