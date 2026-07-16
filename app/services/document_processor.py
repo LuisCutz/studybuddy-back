@@ -1,5 +1,6 @@
 import os
 import tempfile
+import uuid
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document as LangchainDocument
@@ -43,7 +44,13 @@ class DocumentProcessor:
             if os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
 
-    async def process_file(self, file_key: str, filename: str):
+    async def process_file(
+        self, 
+        file_key: str, 
+        filename: str, 
+        document_id: uuid.UUID, 
+        room_id: uuid.UUID
+    ):
         # Descarga el archivo, extrae su texto sin importar el formato y lo parte en chunks para RAG.
         
         storage = StorageService()
@@ -61,5 +68,15 @@ class DocumentProcessor:
         )
         chunks_text = text_splitter.split_text(text)
 
-        docs = [LangchainDocument(page_content=chunk) for chunk in chunks_text]
+        docs = [
+            LangchainDocument(
+                page_content=chunk,
+                metadata={
+                    "document_id": str(document_id), 
+                    "room_id": str(room_id),
+                    "source": filename
+                }
+            ) for chunk in chunks_text
+        ]
+
         return docs
