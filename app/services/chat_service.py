@@ -179,6 +179,13 @@ Mensaje actual del usuario:
         llm_service = get_llm_service()
         response_content = await llm_service.generate_response(prompt)
 
+        if isinstance(response_content, list):
+            response_content = "".join(
+                [bloque.get("text", "") for bloque in response_content if isinstance(bloque, dict)]
+            )
+        elif not isinstance(response_content, str):
+            response_content = str(response_content)
+
         assistant_message = ChatMessage(
             session_id=session.id,
             role="assistant",
@@ -253,6 +260,13 @@ Mensaje actual del usuario:
 
         llm_service = get_llm_service()
         response_content = await llm_service.generate_response(prompt)
+
+        if isinstance(response_content, list):
+            response_content = "".join(
+                [bloque.get("text", "") for bloque in response_content if isinstance(bloque, dict)]
+            )
+        elif not isinstance(response_content, str):
+            response_content = str(response_content)
 
         regenerated_message = ChatMessage(
             session_id=session.id,

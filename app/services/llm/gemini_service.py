@@ -12,14 +12,17 @@ from app.services.llm.base import ILLMService
 class GeminiService(ILLMService):
     def __init__(self):
         self.api_key = os.getenv("GEMINI_API_KEY")
+
+        self.chat_model = os.getenv("GEMINI_CHAT_MODEL", "gemini-3.5-flash")
+        self.embed_model = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
         
         if not self.api_key:
             print("[Warning] GEMINI_API_KEY no está configurada en tu archivo .env")
             
-        print("[LLM] Iniciando motor: Google Gemini (gemini-2.5-flash)")
+        print(f"[LLM] Iniciando motor: Google Gemini ({self.chat_model})")
         
         self.llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
+            model=self.chat_model,
             google_api_key=self.api_key,
             temperature=0.3
         )
@@ -42,7 +45,7 @@ class GeminiService(ILLMService):
     def get_embeddings(self) -> Embeddings:
         # Retorna el motor de embeddings de Google.
         return GoogleGenerativeAIEmbeddings(
-            model="gemini-embedding-001",
+            model=self.embed_model,
             google_api_key=self.api_key
         )
 
