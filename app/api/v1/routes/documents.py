@@ -35,7 +35,12 @@ async def process_document_background(document_id: uuid.UUID, file_path: str):
             
             file_key = file_path.split(f"{storage_service.bucket_name}/")[-1]
             
-            chunks = await processor.process_file(file_key, document.file_path)
+            chunks = await processor.process_file(
+                file_key=file_key, 
+                filename=document.file_path,
+                document_id=document.id,
+                room_id=document.room_id
+            )
             
             vector_service = VectorStoreService()
             await vector_service.add_documents(
