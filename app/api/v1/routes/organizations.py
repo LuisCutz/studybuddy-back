@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.core.security import get_current_user
+from app.models.document import Document
 from app.repositories.invitation_repository import InvitationRepository
 from app.models.invitation import Invitation
 from app.models.room import StudyRoom
@@ -15,6 +16,8 @@ from app.models.study_room_member import StudyRoomMember
 from app.schemas.organization import OrganizationCreate, OrganizationUpdate, OrganizationResponse
 from app.schemas.invitation import InvitationCreate, InvitationResponse, AcceptInvitationRequest
 from app.services.email_service import EmailService
+from app.services.storage import StorageService
+from app.services.vector_store import VectorStoreService
 
 router = APIRouter()
 
@@ -105,6 +108,49 @@ async def update_organization(
     await db.commit()
     await db.refresh(room)
     return room
+
+@router.delete("/{org_id}", summary="Delete an organization and all its resources")
+async def delete_organization(
+    org_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    member_check = await db.execute(
+        select(StudyRoomMember).where(StudyRoomMember.room_id == org_id, StudyRoomMember.user_id == current_user.id)
+    )
+    membership = member_check.scalar_one_or_none()
+    
+    if not membership or membership.role != "admin":
+        raise HTTPException(status_code=403, detail="Solo los administradores pueden eliminar la organización.")
+        
+    result = await db.execute(select(StudyRoom).where(StudyRoom.id == org_id))
+    room = result.scalar_one_or_none()
+    
+    if not room:
+        raise HTTPException(status_code=404, detail="Organización no encontrada.")
+        
+    docs_result = await db.execute(select(Document).where(Document.room_id == org_id))
+    documents = docs_result.scalars().all()
+    
+    storage_service = StorageService()
+    vector_service = VectorStoreService()
+    
+    for doc in documents:
+        try:
+            file_key = doc.file_path.split(f"{storage_service.bucket_name}/")[-1]
+            await storage_service.delete_file(file_key)
+        except Exception as e:
+            print(f"[Warning] Error borrando archivo de R2 para doc {doc.id}: {e}")
+            
+        try:
+            await vector_service.delete_document_embeddings(room_id=org_id, document_id=doc.id)
+        except Exception as e:
+            print(f"[Warning] Error borrando vectores para doc {doc.id}: {e}")
+            
+    await db.delete(room)
+    await db.commit()
+    
+    return {"message": "Organización y todos sus recursos en la nube eliminados correctamente."}
 
 # Enviar invitaciones
 @router.post("/{org_id}/invitations", response_model=InvitationResponse, summary="Create and send an invitation")
