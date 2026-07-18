@@ -174,6 +174,25 @@ async def start_attempt(
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Quiz no encontrado.")
 
+    existing_attempt_stmt = (
+        select(QuizAttempt)
+        .where(
+            QuizAttempt.quiz_id == quiz_id,
+            QuizAttempt.user_id == current_user.id,
+            QuizAttempt.completed_at.is_(None),
+        )
+        .order_by(QuizAttempt.started_at.desc())
+    )
+    result_existing_attempt = await db.execute(existing_attempt_stmt)
+    existing_attempt = result_existing_attempt.scalar_one_or_none()
+
+    if existing_attempt:
+        return {
+            "attempt_id": existing_attempt.id,
+            "started_at": existing_attempt.started_at,
+            "message": "Ya tienes un intento en curso para este quiz."
+        }
+
     new_attempt = QuizAttempt(
         user_id=current_user.id,
         quiz_id=quiz_id,
