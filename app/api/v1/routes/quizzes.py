@@ -120,12 +120,23 @@ async def get_my_quizzes(
     
     result = await db.execute(stmt)
     attempts = result.scalars().all()
+
+    attempt_numbers: dict[UUID, int] = {}
+    grouped_attempts = sorted(attempts, key=lambda attempt: (attempt.quiz_id, attempt.started_at, attempt.id))
+    for attempt in grouped_attempts:
+        attempt_numbers[attempt.id] = attempt_numbers.get(attempt.id, 0) + 1
+
+    per_quiz_counts: dict[UUID, int] = {}
+    for attempt in grouped_attempts:
+        per_quiz_counts[attempt.quiz_id] = per_quiz_counts.get(attempt.quiz_id, 0) + 1
+        attempt_numbers[attempt.id] = per_quiz_counts[attempt.quiz_id]
     
     return [
         {
             "attempt_id": attempt.id,
             "quiz_id": attempt.quiz_id,
             "quiz_title": attempt.quiz.title,
+            "attempt_number": attempt_numbers[attempt.id],
             "score": attempt.score,
             "started_at": attempt.started_at,
             "completed_at": attempt.completed_at,
@@ -148,19 +159,62 @@ async def get_quiz(
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz no encontrado.")
         
-    stmt_attempt = (
+    stmt_active_attempt = (
         select(QuizAttempt)
         .where(
             QuizAttempt.quiz_id == quiz_id,
             QuizAttempt.user_id == current_user.id,
-            QuizAttempt.completed_at.is_not(None)
+            QuizAttempt.completed_at.is_(None)
         )
+        .order_by(QuizAttempt.started_at.desc())
+        .limit(1)
     )
-    result_attempt = await db.execute(stmt_attempt)
-    completed_attempt = result_attempt.scalar_one_or_none()
-    
+    result_active_attempt = await db.execute(stmt_active_attempt)
+    active_attempt = result_active_attempt.scalars().first()
+
+    if active_attempt is None:
+        stmt_completed_attempt = (
+            select(QuizAttempt)
+            .where(
+                QuizAttempt.quiz_id == quiz_id,
+                QuizAttempt.user_id == current_user.id,
+                QuizAttempt.completed_at.is_not(None)
+            )
+            .order_by(QuizAttempt.completed_at.desc())
+            .limit(1)
+        )
+        result_completed_attempt = await db.execute(stmt_completed_attempt)
+        completed_attempt = result_completed_attempt.scalars().first()
+    else:
+        completed_attempt = None
+
     if completed_attempt:
-        return QuizWithAnswersResponse.model_validate(quiz)
+        result_answers = await db.execute(
+            select(AttemptAnswer).where(AttemptAnswer.attempt_id == completed_attempt.id)
+        )
+        attempt_answers = result_answers.scalars().all()
+        selected_by_question = {
+            answer.question_id: answer.selected_option
+            for answer in attempt_answers
+        }
+
+        return {
+            "id": quiz.id,
+            "room_id": quiz.room_id,
+            "title": quiz.title,
+            "topic": quiz.topic,
+            "questions": [
+                {
+                    "id": question.id,
+                    "type": question.type,
+                    "prompt": question.prompt,
+                    "options": question.options,
+                    "correct_answer": question.correct_answer,
+                    "selected_option": selected_by_question.get(question.id),
+                }
+                for question in quiz.questions
+            ],
+        }
     else:
         return QuizResponse.model_validate(quiz)
     
@@ -182,9 +236,10 @@ async def start_attempt(
             QuizAttempt.completed_at.is_(None),
         )
         .order_by(QuizAttempt.started_at.desc())
+        .limit(1)
     )
     result_existing_attempt = await db.execute(existing_attempt_stmt)
-    existing_attempt = result_existing_attempt.scalar_one_or_none()
+    existing_attempt = result_existing_attempt.scalars().first()
 
     if existing_attempt:
         return {
@@ -241,16 +296,15 @@ async def submit_answer(
     existing_answer = result_existing_answer.scalar_one_or_none()
 
     if existing_answer:
-        existing_answer.selected_option = payload.selected_option
-        existing_answer.is_correct = is_correct
-    else:
-        new_answer = AttemptAnswer(
-            attempt_id=attempt_id,
-            question_id=payload.question_id,
-            selected_option=payload.selected_option,
-            is_correct=is_correct
-        )
-        db.add(new_answer)
+        raise HTTPException(status_code=400, detail="Esta pregunta ya fue respondida y no puede modificarse.")
+
+    new_answer = AttemptAnswer(
+        attempt_id=attempt_id,
+        question_id=payload.question_id,
+        selected_option=payload.selected_option,
+        is_correct=is_correct
+    )
+    db.add(new_answer)
 
     await db.commit()
 

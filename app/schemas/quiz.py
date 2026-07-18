@@ -28,6 +28,7 @@ class QuizResponse(BaseModel):
 
 class QuestionWithAnswerResponse(QuestionResponse):
     correct_answer: str
+    selected_option: Optional[str] = None
     
     class Config:
         from_attributes = True
